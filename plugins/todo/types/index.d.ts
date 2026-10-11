@@ -5,10 +5,21 @@ export interface Todo {
 	createdAt: string;
 }
 
+export type TodoStore = {
+	load(): Promise<void>
+	getAll(): Promise<Todo[]>
+	getById(id?: string): Promise<Todo | undefined>
+	add: (text: string) => unknown
+	toggle: (id: string) => unknown
+	remove: (id: string) => unknown
+	clearDone: () => unknown
+}
+
+
 declare module 'claude-code' {
 	interface PluginState {
 		todo: {
-			todos: Todo[];
+			list: Todo[];
 		};
 	}
 }

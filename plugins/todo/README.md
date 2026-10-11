@@ -15,9 +15,9 @@ plugins/todo/
 ├── .claude-plugin/plugin.json   manifest (name, version, types path)
 ├── hooks/
 │   ├── hooks.json               points at register.tsx
-│   ├── register.tsx             state, storage, hooks, the todos tool
-│   ├── ui.tsx                   pure pane drawing (no engine calls)
-│   └── list.ts                  pure todo helpers (no engine calls)
+│   ├── register.tsx             state, saving, the storeOf($) abstraction, the hooks
+│   ├── tools.ts                 the todos tool: manifest and logic (no engine calls)
+│   └── ui.tsx                   pane drawing (no engine calls)
 ├── tests/todo.test.tsx          pane test, run with `claude plugin test`
 └── types/index.d.ts             the todo type and the $.state contract
 ```
@@ -68,6 +68,6 @@ Todos are saved with `$.store` under the key `todos`. Claude Code keeps the stor
 The engine enforces these when it loads a mod. Breaking them stops the mod loading:
 
 - A state owner must be the plugin's own name. The `todo` atom in `register.tsx`, the `PluginState` key in `types/index.d.ts` and the tool name `mcp__todo__todos` all use `todo`; renaming the plugin means changing them together.
-- Pass `$` only to functions declared in the same file. `register.tsx` owns every call that takes `$`. `ui.tsx` and `list.ts` stay pure.
+- Pass `$` only to top-level functions declared in the same file, never to a method, an imported function or a function defined inside a hook. `register.tsx` keeps every use of `$`. It builds `storeOf($)`, an object of plain functions that capture `$`, and hands that to `ui.tsx` and `tools.ts`, which never see the engine. Build a new one in each hook, because `$` can differ between calls.
 - Declare each state atom in the file that reads or writes it.
 - Use literal `plugin` and `key` values in state references.
