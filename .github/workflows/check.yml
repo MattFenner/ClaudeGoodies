@@ -1,0 +1,24 @@
+name: Check
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install Claude Code
+        run: npm install -g @anthropic-ai/claude-code
+
+      # The type-check needs types that Claude Code only writes in an interactive session,
+      # so CI validates and tests; run scripts/check.sh without the flag locally for tsc.
+      - name: Validate and test the plugins
+        run: bash scripts/check.sh --skip-tsc

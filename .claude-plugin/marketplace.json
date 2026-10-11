@@ -5,9 +5,9 @@
   },
   "plugins": [
     {
-      "name": "todo-list",
-      "source": "./plugins/todo-list",
-      "description": "A persistent todo list with a panel, a /todo command, and a tool Claude can use to manage it"
+      "name": "todo",
+      "source": "./plugins/todo",
+      "description": "A persistent todo list. Invoke with /todo. Shows as a UI panel in the right sidebar."
     }
   ],
   "description": "Claude plugins and other goodies by Matt Fenner"

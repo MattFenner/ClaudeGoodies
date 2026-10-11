@@ -1,0 +1,10 @@
+{
+  "name": "todo",
+  "version": "0.1.0",
+  "description": "A persistent todo list. Invoke with /todo. Shows as a UI panel in the right sidebar.",
+  "author": {
+    "name": "Matt Fenner"
+  },
+  "license": "MIT",
+  "types": "./types/index.d.ts"
+}
