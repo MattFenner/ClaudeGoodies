@@ -5,7 +5,7 @@ Claude plugins and other goodies
 
 ### todo
 
-A persistent todo list with a panel, a `/todo` command, and a tool Claude can use to manage it. Todos are saved between sessions in the plugin's store.
+A persistent todo list with a panel, a `/todo` command, and a tool Claude can use to manage it. Each todo has a title and optional notes: click a todo to edit its title, and use the arrow beside it to show or edit its notes. Todos are saved between sessions in the plugin's store.
 
 Install it:
 

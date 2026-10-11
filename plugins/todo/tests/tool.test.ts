@@ -54,6 +54,28 @@ describe('todos tool', () => {
     expect(engine.stored()?.map(t => t.id)).toEqual(['b2'])
   })
 
+  test('add takes notes, and list shows them under the title', async ($, on) => {
+    const engine = fakeEngine(on)
+    await $.session.start(SESSION)
+
+    await $.tool.call({ tool: TOOL, action: 'add', text: 'milk', notes: ' two litres\nsemi-skimmed ' })
+    const { result } = await $.tool.call({ tool: TOOL, action: 'list' })
+
+    expect(engine.stored()?.[0]?.notes).toBe('two litres\nsemi-skimmed')
+    expect(result).toMatch(/\[ \] \w+ {2}milk\n {6}two litres\n {6}semi-skimmed$/)
+  })
+
+  test('set_notes changes a todo\'s notes, and empty notes clear them', async ($, on) => {
+    const engine = fakeEngine(on, [todo('a1', 'milk')])
+    await $.session.start(SESSION)
+
+    await $.tool.call({ tool: TOOL, action: 'set_notes', id: 'a1', notes: 'two litres' })
+    expect(engine.stored()?.[0]?.notes).toBe('two litres')
+
+    await $.tool.call({ tool: TOOL, action: 'set_notes', id: 'a1', notes: '' })
+    expect(engine.stored()?.[0]).not.toHaveProperty('notes')
+  })
+
   test('bad input is refused as an error and changes nothing', async ($, on) => {
     const engine = fakeEngine(on, [todo('a1', 'milk')])
     await $.session.start(SESSION)
@@ -61,9 +83,10 @@ describe('todos tool', () => {
 
     const noText = await $.tool.call({ tool: TOOL, action: 'add', text: '   ' })
     const noSuchId = await $.tool.call({ tool: TOOL, action: 'remove', id: 'zzz' })
+    const notesForNoSuchId = await $.tool.call({ tool: TOOL, action: 'set_notes', id: 'zzz', notes: 'x' })
     const noAction = await $.tool.call({ tool: TOOL, action: 'explode' })
 
-    for (const refused of [noText, noSuchId, noAction]) expect(refused.isError).toBe(true)
+    for (const refused of [noText, noSuchId, notesForNoSuchId, noAction]) expect(refused.isError).toBe(true)
     expect(engine.stored()).toEqual(before)
   })
 })

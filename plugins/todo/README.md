@@ -22,6 +22,7 @@ plugins/todo/
 │   ├── todo.test.tsx            the pane: add, tick, clear, remove, saving
 │   ├── command.test.ts          /todo, and loading the saved list at session start
 │   ├── tool.test.ts             every action of the todos tool, and bad input
+│   ├── notes.test.ts            editing a title, and expanding a todo to save its notes
 │   └── fixtures/fake-engine.ts  stands in for the engine beneath the plugin
 └── types/index.d.ts             the todo type and the $.state contract
 ```
