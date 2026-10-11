@@ -1,5 +1,7 @@
 import { expect, test } from 'claude-code/testing'
 
+import { addFieldKey, addTodo } from './fixtures/fake-engine'
+
 const PANE = {
   component: 'Pane',
   requestId: 'todo',
@@ -17,7 +19,10 @@ test('the panel adds, ticks, clears and removes todos on every surface with inpu
   for (const surface of ['terminal', 'desktop'] as const) {
     const ui = await $.ui.mount({ plugin: 'todo', surface, ...PANE })
 
-    await ui.input({ key: 'new', text: 'buy milk' })
+    // Each add gives a fresh add field (a new key), which is what clears the text that was typed.
+    const fieldBefore = await addFieldKey(ui)
+    await addTodo(ui, 'buy milk')
+    expect(await addFieldKey(ui)).not.toBe(fieldBefore)
     // The todo's text sits beside its checkbox button, not inside it.
     expect(await ui.find({ text: /buy milk/ })).toBeDefined()
     const toggle = (await ui.findAll({ type: 'Button' })).find(b => b.key?.startsWith('toggle-'))
@@ -30,7 +35,7 @@ test('the panel adds, ticks, clears and removes todos on every surface with inpu
     await ui.press({ key: 'clear-done' })
     expect(await ui.find({ text: /Nothing to do/ })).toBeDefined()
 
-    await ui.input({ key: 'new', text: 'write tests' })
+    await addTodo(ui, 'write tests')
     expect(saved.map(t => t.text)).toEqual(['write tests'])
 
     const remove = (await ui.findAll({ type: 'Button' })).find(b => b.key?.startsWith('remove-'))
