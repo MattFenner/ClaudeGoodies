@@ -18,7 +18,9 @@ test('the panel adds, ticks, clears and removes todos on every surface with inpu
     const ui = await $.ui.mount({ plugin: 'todo', surface, ...PANE })
 
     await ui.input({ key: 'new', text: 'buy milk' })
-    const toggle = await ui.find({ text: /buy milk/, type: 'Button' })
+    // The todo's text sits beside its checkbox button, not inside it.
+    expect(await ui.find({ text: /buy milk/ })).toBeDefined()
+    const toggle = (await ui.findAll({ type: 'Button' })).find(b => b.key?.startsWith('toggle-'))
     expect(toggle?.text).toContain('☐')
     expect(await ui.find({ text: /1 open · 0 done/ })).toBeDefined()
 
