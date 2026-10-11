@@ -2,11 +2,15 @@ import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register } from 'claude-code'
 
 import type { Todo } from '../types'
+import { describe, newTodo } from './list'
+import { PANE, renderPane } from './ui'
 
-const PANE = 'todo-list'
 const FILE = 'todos.json'
 const TOOL = 'mcp__todo-list__todos'
+// The state must be declared in the file that reads or writes it, so it lives here with the hooks.
 const todos = atom({ plugin: 'todo-list', key: 'todos' } as const, [])
+
+type ToolInput = { action?: string; text?: string; id?: string }
 
 const openPane = ($: EngineInterface) => $.ui.open({ id: PANE, title: 'Todos' })
 
@@ -34,27 +38,11 @@ async function change($: EngineInterface, fn: (list: Todo[]) => Todo[]) {
   await $.fs.write(await dataFile($), JSON.stringify({ todos: list }, null, 2))
 }
 
-function newTodo(text: string): Todo {
-  return {
-    id: crypto.randomUUID().slice(0, 8),
-    text: text.trim(),
-    isDone: false,
-    createdAt: new Date().toISOString(),
-  }
-}
-
 const addTodo = ($: EngineInterface, text: string) => change($, list => [...list, newTodo(text)])
 const toggleTodo = ($: EngineInterface, id: string) =>
   change($, list => list.map(t => (t.id === id ? { ...t, isDone: !t.isDone } : t)))
 const removeTodo = ($: EngineInterface, id: string) => change($, list => list.filter(t => t.id !== id))
 const clearDone = ($: EngineInterface) => change($, list => list.filter(t => !t.isDone))
-
-type ToolInput = { action?: string; text?: string; id?: string }
-
-function describe(list: Todo[]): string {
-  if (list.length === 0) return 'The todo list is empty.'
-  return list.map(t => `[${t.isDone ? 'x' : ' '}] ${t.id}  ${t.text}`).join('\n')
-}
 
 async function runTool($: EngineInterface, input: ToolInput) {
   const list = await read($, todos)
@@ -133,43 +121,14 @@ export const register: Register = on => {
 
   on('ui.render', { component: 'Pane', requestId: PANE }, async ($, e) => {
     const els = $.ui.resolve(e)
-    const { Box, Text, Button } = els
     const list = await read($, todos)
-    const open = list.filter(t => !t.isDone).length
+    const act = {
+      add: (text: string) => void addTodo($, text),
+      toggle: (id: string) => void toggleTodo($, id),
+      remove: (id: string) => void removeTodo($, id),
+      clearDone: () => void clearDone($),
+    }
 
-    return (
-      <Box flexDirection="column">
-        <Text bold>
-          {open} open · {list.length - open} done
-        </Text>
-        {'Input' in els && (
-          <els.Input
-            key="new"
-            placeholder="Add a todo…"
-            submitLabel="add"
-            value=""
-            onSubmit={text => {
-              if (text.trim()) void addTodo($, text)
-            }}
-          />
-        )}
-        {list.length === 0 && <Text dimColor>Nothing to do. Add one above or with /todo &lt;text&gt;.</Text>}
-        {list.map(t => (
-          <Box key={`row-${t.id}`} flexDirection="row">
-            <Button key={`toggle-${t.id}`} plain onPress={() => void toggleTodo($, t.id)}>
-              {t.isDone ? '☑ ' : '☐ '}
-              <Text dimColor={t.isDone} strikethrough={t.isDone}>
-                {t.text}
-              </Text>
-            </Button>
-            <Text> </Text>
-            <Button key={`remove-${t.id}`} plain label="✕" onPress={() => void removeTodo($, t.id)} />
-          </Box>
-        ))}
-        {list.some(t => t.isDone) && (
-          <Button key="clear-done" label="Clear done" onPress={() => void clearDone($)} />
-        )}
-      </Box>
-    )
+    return renderPane(els, list, act)
   })
 }
