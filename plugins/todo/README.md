@@ -18,7 +18,11 @@ plugins/todo/
 │   ├── register.tsx             state, saving, the storeOf($) abstraction, the hooks
 │   ├── tools.ts                 the todos tool: manifest and logic (no engine calls)
 │   └── ui.tsx                   pane drawing (no engine calls)
-├── tests/todo.test.tsx          pane test, run with `claude plugin test`
+├── tests/
+│   ├── todo.test.tsx            the pane: add, tick, clear, remove, saving
+│   ├── command.test.ts          /todo, and loading the saved list at session start
+│   ├── tool.test.ts             every action of the todos tool, and bad input
+│   └── fixtures/fake-engine.ts  stands in for the engine beneath the plugin
 └── types/index.d.ts             the todo type and the $.state contract
 ```
 
