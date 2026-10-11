@@ -147,3 +147,6 @@ vite.config.ts.timestamp-*
 
 # Turbo Repo
 .turbo
+
+# Written by Claude Code when it loads a plugin with --plugin-dir; regenerate rather than commit.
+plugins/*/.claude-plugin/types/

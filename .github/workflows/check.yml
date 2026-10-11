@@ -1,0 +1,36 @@
+name: Check
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+# A newer push to the same branch or pull request replaces a run still in progress.
+concurrency:
+  group: check-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install Claude Code
+        run: npm install -g @anthropic-ai/claude-code
+
+      - name: Validate the marketplace
+        run: claude plugin validate .
+
+      # The type-check needs types that Claude Code only writes in an interactive session,
+      # so CI validates and tests; run scripts/check.sh without the flag locally for tsc.
+      - name: Validate and test the plugins
+        run: bash scripts/check.sh --skip-tsc
