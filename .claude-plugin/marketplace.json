@@ -1,0 +1,14 @@
+{
+  "name": "claude-goodies",
+  "owner": {
+    "name": "Matt Fenner"
+  },
+  "plugins": [
+    {
+      "name": "todo-list",
+      "source": "./plugins/todo-list",
+      "description": "A persistent todo list with a panel, a /todo command, and a tool Claude can use to manage it"
+    }
+  ],
+  "description": "Claude plugins and other goodies by Matt Fenner"
+}

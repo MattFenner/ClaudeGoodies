@@ -1,0 +1,10 @@
+{
+  "name": "todo-list",
+  "version": "0.1.0",
+  "description": "A persistent todo list with a panel, a /todo command, and a tool Claude can use to manage it",
+  "author": {
+    "name": "Matt Fenner"
+  },
+  "license": "MIT",
+  "types": "./types/index.d.ts"
+}
