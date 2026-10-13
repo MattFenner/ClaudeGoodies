@@ -7,6 +7,7 @@ import { gridOf, gridToTerminal } from "./grid";
 import { makeSpans, sinceLastPrompt } from "./spans";
 import { callInfo, callOutcome, keepNewest, summarizePrompt } from "./tools";
 import { LOG_DIR, staleLogs, toJsonl } from "./log";
+import type { ToolCallInfo } from "../types";
 
 // Every telemetry entry the collector has seen this session, oldest first.
 const eventsAtom = atom({ plugin: "pixels", key: "events" } as const, []);
@@ -14,7 +15,7 @@ const eventsAtom = atom({ plugin: "pixels", key: "events" } as const, []);
 // What the tool.call hook learned about each call, keyed by tool_use_id. Joined
 // onto the tool spans when they are built. Kept in memory only, never logged,
 // since tool arguments can hold paths and commands.
-const toolCallsAtom = atom({ plugin: "pixels", key: "toolCalls" } as const, {});
+const toolCallsAtom = atom({ plugin: "pixels", key: "toolCalls" } as const, {} as Record<string, ToolCallInfo>);
 const MAX_TOOL_CALLS = 500;
 
 // The prompts the prompt.submit hook saw, with when. Telemetry redacts the text.
@@ -52,25 +53,25 @@ async function pruneLogs($: EngineInterface, dir: string, keep: string): Promise
   }
 }
 
-const PANE = "spans";
+const PANE = "pixels";
 
 export const register: Register = (on) => {
-  // The pane is optional: nothing opens it until the person runs /spans.
+  // The pane is optional: nothing opens it until the person runs /pixels.
   on("session.start", async ($, e, next) => {
     await $.command.register({
-      name: "spans",
+      name: "pixels",
       description: "Show or hide the pane listing this session's spans",
     });
     return next(e);
   });
 
-  on("command.run", { command: "spans" }, async ($) => {
+  on("command.run", { command: "pixels" }, async ($) => {
     if ((await $.ui.panes()).some((pane) => pane.id === PANE)) {
       await $.ui.close({ id: PANE });
-      return { text: "Spans pane closed." };
+      return { text: "Pixels pane closed." };
     }
-    const { isPlaced } = await $.ui.open({ id: PANE, title: "Spans" });
-    return { text: isPlaced ? "Spans pane opened." : "Spans pane opened, but the terminal is too narrow to show it yet." };
+    const { isPlaced } = await $.ui.open({ id: PANE, title: "Pixels" });
+    return { text: isPlaced ? "pane opened." : "pane opened, but the terminal is too narrow to show it yet." };
   });
 
   on("ui.render", { component: "Pane", requestId: PANE }, async ($, e) => {
@@ -107,9 +108,18 @@ export const register: Register = (on) => {
   // Watches every tool call and always passes it on unchanged.
   on("tool.call", async ($, e, next) => {
     const id = e.tool_use_id;
-    if (id) await update($, toolCallsAtom, (d) => keepNewest({ ...d, [id]: callInfo(e) }, MAX_TOOL_CALLS));
+    if (id) {
+      await update($, toolCallsAtom, (d) =>
+        keepNewest({ ...d, [id]: callInfo(e) } as Record<string, ToolCallInfo>, MAX_TOOL_CALLS),
+      );
+    }
     const answer = await next(e);
-    if (id) await update($, toolCallsAtom, (d) => ({ ...d, [id]: { ...d[id], ...callOutcome(answer) } }));
+    if (id) {
+      await update($, toolCallsAtom, (d) => ({
+        ...d,
+        [id]: { ...(d[id] ?? ({ tool: "unknown" } as ToolCallInfo)), ...callOutcome(answer) },
+      } as Record<string, ToolCallInfo>));
+    }
     return answer;
   });
 

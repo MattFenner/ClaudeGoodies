@@ -16,7 +16,7 @@ Install it:
 
 ### pixels
 
-A timeline above the prompt with one cell per second of each tool call, model request and prompt, plus a `/spans` pane with the details. Session logs are kept for 7 days.
+A timeline above the prompt with one cell per second of each tool call, model request and prompt, plus a `/pixels` pane with the details. Session logs are kept for 7 days.
 
 Install it:
 

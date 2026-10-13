@@ -1,9 +1,9 @@
 import { expect, test } from "claude-code/testing";
 
-import { spanToCell } from "./grid";
+import { COLOR_NONE, spanToCellStyle } from "./grid";
 import { normalizeEvent } from "./events";
 
-const COLOR_NONE = 0x01000000;
+import type { Span } from "./spans";
 
 // Entries as telemetry.log delivers them (trimmed to the fields that matter;
 // the pasted samples had corrupted keys, e.g. a bare "qad" and a mangled
@@ -60,70 +60,41 @@ test("normalizeEvent drops the attributes that identify the user or session", ()
   expect(attributes).toEqual(apiRequest.attributes);
 });
 
-test("an api_request entry draws a magenta 'a' cell", () => {
-  expect(spanToCell(normalizeEvent(apiRequest))).toEqual({
-    char: "a",
-    color: 0x000000,
+const span = (type: string): Span => ({ kind: "other", type, start: 0, events: [] });
+
+const BLACK = 0x000000;
+
+test("an api_request entry is black on magenta", () => {
+  expect(spanToCellStyle(span(normalizeEvent(apiRequest).type))).toEqual({
+    foreground: BLACK,
     background: 0xffaaff,
   });
 });
 
-test("an assistant_response entry draws a white 'R' on dark grey", () => {
-  expect(spanToCell(normalizeEvent(assistantResponse))).toEqual({
-    char: "R",
-    color: 0xffffff,
+test("an assistant_response entry is white on dark grey", () => {
+  expect(spanToCellStyle(span(normalizeEvent(assistantResponse).type))).toEqual({
+    foreground: 0xffffff,
     background: 0x111111,
   });
 });
 
-test("assistant_response is a white 'R' on dark grey", () => {
-  expect(spanToCell({ type: "assistant_response" })).toEqual({
-    char: "R",
-    color: 0xffffff,
-    background: 0x111111,
-  });
+test("user_input is black on white", () => {
+  expect(spanToCellStyle(span("user_input"))).toEqual({ foreground: BLACK, background: 0xffffff });
 });
 
-test("user_input is a black 'I' on white", () => {
-  expect(spanToCell({ type: "user_input" })).toEqual({
-    char: "I",
-    color: 0x000000,
-    background: 0xffffff,
-  });
+test("tool_ events are black on blue", () => {
+  expect(spanToCellStyle(span("tool_call"))).toEqual({ foreground: BLACK, background: 0xaaaaff });
 });
 
-test("tool_ events are blue with the capitalised first letter after the prefix", () => {
-  expect(spanToCell({ type: "tool_call" })).toEqual({
-    char: "C",
-    color: 0x000000,
-    background: 0xaaaaff,
-  });
+test("mcp_ events are black on green", () => {
+  expect(spanToCellStyle(span("mcp_request"))).toEqual({ foreground: BLACK, background: 0xaaffaa });
 });
 
-test("mcp_ events are green with the capitalised first letter after the prefix", () => {
-  expect(spanToCell({ type: "mcp_request" })).toEqual({
-    char: "R",
-    color: 0x000000,
-    background: 0xaaffaa,
-  });
+test("user_prompt is black on the default background", () => {
+  expect(spanToCellStyle(span("user_prompt"))).toEqual({ foreground: BLACK, background: COLOR_NONE });
 });
 
-test("user_prompt is a blank cell on the default background", () => {
-  expect(spanToCell({ type: "user_prompt" })).toEqual({
-    char: " ",
-    color: 0x000000,
-    background: COLOR_NONE,
-  });
-});
-
-test("other events show their lowercased first letter on magenta", () => {
-  expect(spanToCell({ type: "Tool_result" })).toEqual({
-    char: "t",
-    color: 0x000000,
-    background: 0xffaaff,
-  });
-});
-
-test("an empty type falls back to a space", () => {
-  expect(spanToCell({ type: "" }).char).toBe(" ");
+test("other events are black on magenta", () => {
+  expect(spanToCellStyle(span("Tool_result"))).toEqual({ foreground: BLACK, background: 0xffaaff });
+  expect(spanToCellStyle(span(""))).toEqual({ foreground: BLACK, background: 0xffaaff });
 });

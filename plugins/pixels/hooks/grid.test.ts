@@ -1,45 +1,57 @@
 import { expect, test } from "claude-code/testing";
 
-import { cellsFor, gridOf } from "./grid";
+import { COLOR_NONE, gridOf, spanToCellCount, type Cell } from "./grid";
 
 import type { Span } from "./spans";
 
 const span = (type: string, durationMs?: number): Span => ({
-  kind: "instant",
+  kind: "other",
   type,
   start: 0,
   durationMs,
   events: [],
 });
 
-const chars = (spans: Span[], columns: number) => gridOf(spans, columns)[0].map((c) => c.char).join("");
+const chars = (spans: Span[], columns: number) => gridOf(spans, columns)[0]!.map((c: Cell) => c.char).join("");
 
 test("a span takes one cell per second, rounded", () => {
-  expect(cellsFor({ durationMs: 3000 })).toBe(3);
-  expect(cellsFor({ durationMs: 2400 })).toBe(2);
-  expect(cellsFor({ durationMs: 2600 })).toBe(3);
+  expect(spanToCellCount({ durationMs: 3000 })).toBe(3);
+  expect(spanToCellCount({ durationMs: 2400 })).toBe(2);
+  expect(spanToCellCount({ durationMs: 2600 })).toBe(3);
 });
 
 test("a span always takes at least one cell", () => {
-  expect(cellsFor({ durationMs: 0 })).toBe(1);
-  expect(cellsFor({ durationMs: 40 })).toBe(1);
-  expect(cellsFor({ durationMs: undefined })).toBe(1);
+  expect(spanToCellCount({ durationMs: 0 })).toBe(1);
+  expect(spanToCellCount({ durationMs: 40 })).toBe(1);
+  expect(spanToCellCount({ durationMs: undefined })).toBe(1);
 });
 
-test("a long span shows its letter then spaces", () => {
-  expect(chars([span("tool_Glob", 3000)], 6)).toBe("G     ");
+test("a span under five seconds shows blank cells", () => {
+  expect(chars([span("tool_Glob", 3000)], 6)).toBe("      ");
 });
 
-test("a span that repeats the one before shows only spaces", () => {
-  expect(chars([span("tool_Glob", 1000), span("tool_Grep", 1000)], 3)).toBe("G  ");
+test("a tool call of four seconds or more shows its summary", () => {
+  const tool: Span = { ...span("tool_Bash", 6000), kind: "tool", call: { tool: "Bash", summary: "ls" } };
+  expect(chars([tool], 6)).toBe("ls    ");
 });
 
-test("different spans each show their letter", () => {
-  expect(chars([span("tool_Glob", 1000), span("api_request", 1000)], 3)).toBe("Ga ");
+test("other long spans show blank cells", () => {
+  expect(chars([span("tool_Glob", 6000)], 6)).toBe("      ");
+});
+
+test("user_prompt never shows text", () => {
+  expect(chars([span("user_prompt", 9000)], 9)).toBe("         ");
+});
+
+test("each span styles its own cells", () => {
+  const row = gridOf([span("tool_Glob", 1000), span("api_request", 1000)], 3)[0]!;
+  expect(row[0]!.background).toBe(0xaaaaff);
+  expect(row[1]!.background).toBe(0xffaaff);
+  expect(row[2]!).toEqual({ char: " ", foreground: COLOR_NONE, background: COLOR_NONE });
 });
 
 test("a row too long for the width keeps the most recent cells", () => {
-  const cells = gridOf([span("tool_Glob", 5000), span("api_request", 1000)], 4)[0];
+  const cells = gridOf([span("tool_Glob", 5000), span("api_request", 1000)], 4)[0]!;
   expect(cells.length).toBe(4);
-  expect(cells.map((c) => c.char).join("")).toBe("   a");
+  expect(cells.map((c: Cell) => c.background)).toEqual([0xaaaaff, 0xaaaaff, 0xaaaaff, 0xffaaff]);
 });

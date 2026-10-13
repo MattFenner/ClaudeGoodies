@@ -6,29 +6,89 @@ import type { Event, PromptInfo, ToolCallInfo } from "../types";
 // A tool call's tool_decision and tool_result events become one span, and an
 // api_request becomes a span ending when it was logged. Every other event is an
 // instant, a span that starts and ends at the same moment.
-export type SpanKind = "tool" | "api" | "instant";
+//
+// Its kind says whose it is: a tool call, the user (prompts), an MCP tool or
+// server, a subagent, or other (model requests and the rest).
+// FIXME: hook?
+export type SpanKind = "tool" | "user" | "agent" | "mcp" | "other";
+export type ToolKind = "skill" | "command" | "mcp" | "other";
 
-export type Span = {
+export type SpanBase = {
   kind: SpanKind;
-  // What the grid styles it by: "tool_<name>" for a tool call, otherwise the
-  // event's own type.
-  type: string;
-  // Ms since the epoch.
   start: number;
-  // Undefined while the span is still open (a tool call with no result yet).
   end?: number;
   durationMs?: number;
-  // Tool calls only: the result's own success flag, false when the call was rejected.
-  success?: boolean;
-  // Tool calls only.
-  toolUseId?: string;
-  // Tool calls only: what the tool.call hook saw, when it saw this call.
-  call?: ToolCallInfo;
-  // User prompts only: the text the prompt.submit hook saw (telemetry redacts it).
-  prompt?: string;
-  // The events it was built from, in the order they arrived.
   events: Event[];
-};
+
+  // TODO: do we want these?
+  type: string;
+
+}
+
+export type ToolSpan = SpanBase & {
+  kind: 'tool',
+  toolKind: ToolKind,
+  toolName?: string,
+  success?: boolean;
+  call?: ToolCallInfo;
+  toolUseId?: string;
+}
+
+export type UserSpan = SpanBase & {
+  kind: 'user',
+  prompt?: string;
+}
+
+export type AgentSpan = SpanBase & {
+  kind: 'agent',
+  agentId: string,
+}
+
+export type McpSpan = SpanBase & {
+  kind: 'mcp',
+  model?: string,
+}
+
+export type OtherSpan = SpanBase & {
+  kind: 'other',
+  model?: string
+}
+
+export type Span = UserSpan | ToolSpan | AgentSpan | McpSpan | OtherSpan;
+
+// export type Span = {
+//   kind: SpanKind;
+//   // What the grid styles it by: "tool_<name>" for a tool call, otherwise the
+//   // event's own type.
+//   type: string;
+//   // Ms since the epoch.
+//   start: number;
+//   // Undefined while the span is still open (a tool call with no result yet).
+//   end?: number;
+//   durationMs?: number;
+//   // Tool calls only: the result's own success flag, false when the call was rejected.
+//   success?: boolean;
+//   // Tool calls only.
+//   toolUseId?: string;
+//   // Tool calls only: what the tool.call hook saw, when it saw this call.
+//   call?: ToolCallInfo;
+//   // User prompts only: the text the prompt.submit hook saw (telemetry redacts it).
+//   prompt?: string;
+//   // The events it was built from, in the order they arrived.
+//   events: Event[];
+// };
+
+export function kindOf(type: string, attrs: Record<string, unknown> = {}): SpanKind {
+  if (type === "tool_decision" || type === "tool_result") {
+    const name = String(attrs.tool_name ?? "");
+    const source = String(attrs.tool_source ?? "");
+    return name.startsWith("mcp__") || source === "mcp" ? "mcp" : "tool";
+  }
+  if (type.startsWith("mcp_")) return "mcp";
+  if (type.startsWith("user_")) return "user";
+  if (type.startsWith("subagent")) return "agent";
+  return "other";
+}
 
 // Attribute values arrive as strings ("68", "true"), whatever they mean.
 function num(value: unknown): number | undefined {
@@ -59,7 +119,7 @@ export function makeSpans(
   prompts: PromptInfo[] = [],
 ): Span[] {
   const spans: Span[] = [];
-  const openTools = new Map<string, Span>();
+  const openTools = new Map<string, ToolSpan>();
 
   for (const event of events.filter(isConversationEvent)) {
     const at = timeOf(event);
@@ -68,9 +128,11 @@ export function makeSpans(
 
     if (event.type === "tool_decision") {
       const rejected = attrs.decision !== "accept";
-      const span: Span = {
-        kind: "tool",
+      const span: ToolSpan = {
+        kind: 'tool',
         type: `tool_${attrs.tool_name ?? ""}`,
+        toolKind: toolKindOf(event),
+        toolName: attrs.tool_name,
         start: at,
         toolUseId,
         events: [event],
@@ -81,9 +143,11 @@ export function makeSpans(
     } else if (event.type === "tool_result") {
       const durationMs = num(attrs.duration_ms);
       const known = toolUseId ? openTools.get(toolUseId) : undefined;
-      const span: Span = known ?? {
-        kind: "tool",
+      const span: ToolSpan = known ?? {
+        kind: 'tool',
         type: `tool_${attrs.tool_name ?? ""}`,
+        toolKind: toolKindOf(event),
+        toolName: attrs.tool_name,
         start: at,
         toolUseId,
         events: [],
@@ -99,32 +163,54 @@ export function makeSpans(
     } else if (event.type === "api_request") {
       const durationMs = num(attrs.duration_ms);
       spans.push({
-        kind: "api",
+        kind: kindOf(event.type, attrs),
         type: event.type,
         start: at - (durationMs ?? 0),
         end: at,
         durationMs,
+        model: event.model,
+        events: [event],
+      } as Span);
+    } else if (event.type.startsWith("user_")) {
+      spans.push({ kind: "user", type: event.type, start: at, end: at, durationMs: 0, events: [event] });
+    } else if (event.type.startsWith("mcp_")) {
+      spans.push({
+        kind: "mcp",
+        type: event.type,
+        start: at,
+        end: at,
+        durationMs: 0,
         events: [event],
       });
     } else {
-      spans.push({ kind: "instant", type: event.type, start: at, end: at, durationMs: 0, events: [event] });
+      spans.push({ kind: 'other', type: event.type, start: at, end: at, durationMs: 0, events: [event] });
     }
   }
 
-  for (const span of spans) {
+  // Match calls
+  for (const span of spans.filter(s => s.kind === 'tool')) {
     if (span.toolUseId && calls[span.toolUseId]) span.call = calls[span.toolUseId];
   }
 
   // Each user_prompt takes the closest unused submission within a few seconds.
   const unused = [...prompts];
-  for (const span of spans) {
+  for (const span of spans.filter(s => s.kind === 'user')) {
     if (span.type !== "user_prompt") continue;
     let best = -1;
     unused.forEach((p, i) => {
       const gap = Math.abs(p.at - span.start);
-      if (gap <= PROMPT_MATCH_MS && (best < 0 || gap < Math.abs(unused[best].at - span.start))) best = i;
+      const currentBest = best >= 0 ? unused[best] : undefined;
+      if (
+        gap <= PROMPT_MATCH_MS &&
+        (!currentBest || gap < Math.abs(currentBest.at - span.start))
+      ) {
+        best = i;
+      }
     });
-    if (best >= 0) span.prompt = unused.splice(best, 1)[0].text;
+    if (best >= 0) {
+      const prompt = unused.splice(best, 1)[0];
+      if (prompt) span.prompt = prompt.text;
+    }
   }
 
   return spans;
@@ -136,3 +222,13 @@ export function sinceLastPrompt(spans: Span[]): Span[] {
   const last = spans.findLastIndex((span) => span.type === "user_prompt");
   return last < 0 ? spans : spans.slice(last);
 }
+
+function toolKindOf(event: Event): ToolKind {
+  const attrs = event.attributes ?? {};
+  if (attrs.tool_source === "mcp" || String(attrs.tool_name ?? "").startsWith("mcp__")) {
+    return "mcp";
+  }
+  // FIXME: skill etc
+  return "other";
+}
+

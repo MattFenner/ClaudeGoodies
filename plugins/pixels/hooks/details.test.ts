@@ -6,7 +6,7 @@ import type { Span } from "./spans";
 
 const start = Date.UTC(2026, 9, 13, 4, 5, 6);
 const span = (over: Partial<Span>): Span => ({
-  kind: "instant",
+  kind: "other",
   type: "user_prompt",
   start,
   end: start,
@@ -39,7 +39,7 @@ test("an open tool call says running with no duration yet", () => {
 });
 
 test("an api request keeps its type and shows a duration but no status", () => {
-  expect(spanRow(span({ kind: "api", type: "api_request", durationMs: 2109 }))).toMatchObject({
+  expect(spanRow(span({ kind: "other", type: "api_request", durationMs: 2109 }))).toMatchObject({
     label: "api_request",
     duration: "2.1s",
     status: "",
@@ -58,23 +58,17 @@ test("spanRows keeps the newest rows that fit, oldest first", () => {
 const withAttrs = (type: string, attributes: Record<string, unknown>, over: Partial<Span> = {}): Span =>
   span({ type, events: [{ type, attributes }], ...over });
 
-test("an api request lists its model, tokens, cost and a non-main source", () => {
+test("an api request shows its span model and ignores event attributes", () => {
   const row = spanRow(
     withAttrs("api_request", {
-      model: "claude-haiku-5-5",
+      model: "event-model",
       input_tokens: "1164",
       output_tokens: "13",
-      ttft_ms: "706",
       cost_usd: "0.0001229",
       query_source: "generate_session_title",
-    }, { kind: "api", durationMs: 963 }),
+    }, { kind: "other", durationMs: 963, model: "claude-haiku-5-5" }),
   );
-  expect(row.details).toEqual([
-    "claude-haiku-5-5",
-    "tokens 1164 in, 13 out",
-    "cost $0.0001",
-    "from generate_session_title",
-  ]);
+  expect(row.details).toEqual(["claude-haiku-5-5"]);
 });
 
 test("a tool call hides its sizes, the builtin source and an accepted decision", () => {
@@ -95,12 +89,12 @@ test("a span with nothing worth showing has no detail lines", () => {
 
 test("spanRows counts detail lines against the room it has", () => {
   const spans = [
-    withAttrs("old", { model: "m" }),
-    withAttrs("mid", { model: "m", from: 1, query_source: "q" }),
-    withAttrs("new", { model: "m" }),
+    withAttrs("old", { model: "event-model" }, { model: "m" }),
+    withAttrs("mid", { model: "event-model", query_source: "q" }, { model: "m" }),
+    withAttrs("new", { model: "event-model" }, { model: "m" }),
   ];
-  // new takes 2 lines, mid takes 3: only new fits in 4
-  expect(spanRows(spans, 4).map((r) => r.label)).toEqual(["new"]);
+  // Each span takes 2 lines, so the newest two fit in 4.
+  expect(spanRows(spans, 4).map((r) => r.label)).toEqual(["mid", "new"]);
   // and at least one row is shown however little room there is
   expect(spanRows(spans, 1).map((r) => r.label)).toEqual(["new"]);
 });
@@ -126,39 +120,39 @@ test("spanRows with no limit lists every span, oldest first", () => {
 });
 
 test("a user prompt shows its text and not its length", () => {
-  const s = span({ prompt: "fix the bug", events: [{ type: "user_prompt", attributes: { prompt_length: "11" } }] });
+  const s = span({ kind: "user", prompt: "fix the bug", events: [{ type: "user_prompt", attributes: { prompt: "event prompt" } }] });
   expect(spanRow(s).details).toEqual(["fix the bug"]);
 });
 
-test("a main-thread api request hides its source, and the first-token time is never shown", () => {
-  const row = spanRow(withAttrs("api_request", { model: "m", query_source: "repl_main_thread", ttft_ms: "706" }, { kind: "api" }));
-  expect(row.details).toEqual(["m"]);
+test("event attributes do not become detail lines", () => {
+  const row = spanRow(withAttrs("api_request", { model: "m", query_source: "repl_main_thread", ttft_ms: "706" }, { kind: "other" }));
+  expect(row.details).toEqual([]);
 });
 
-test("a tool from somewhere other than the builtins shows its source", () => {
-  expect(spanRow(withAttrs("tool_decision", { tool_source: "mcp" }, { kind: "tool", type: "tool_x" })).details).toEqual(["tool source mcp"]);
+test("tool event attributes do not become detail lines", () => {
+  expect(spanRow(withAttrs("tool_decision", { tool_source: "mcp" }, { kind: "tool", type: "tool_x" })).details).toEqual([]);
 });
 
-test("a refused decision shows who made it, an accepted one shows nothing", () => {
+test("decision event attributes do not become detail lines", () => {
   const detailsOf = (attrs: Record<string, unknown>) => spanRow(withAttrs("tool_decision", attrs, { kind: "tool", type: "tool_x" })).details;
-  expect(detailsOf({ decision: "reject", source: "user" })).toEqual(["decision reject (user)"]);
-  expect(detailsOf({ decision: "reject" })).toEqual(["decision reject"]);
+  expect(detailsOf({ decision: "reject", source: "user" })).toEqual([]);
+  expect(detailsOf({ decision: "reject" })).toEqual([]);
   expect(detailsOf({ decision: "accept", source: "config" })).toEqual([]);
 });
 
-test("a skill activation shows as a slash command", () => {
-  expect(spanRow(withAttrs("skill_activated", { "skill.name": "plugin-authoring", "skill.source": "bundled" })).details).toEqual(["/plugin-authoring"]);
+test("skill event attributes do not become detail lines", () => {
+  expect(spanRow(withAttrs("skill_activated", { "skill.name": "plugin-authoring", "skill.source": "bundled" })).details).toEqual([]);
 });
 
 test("an assistant response shows its model and not its length", () => {
-  expect(spanRow(withAttrs("assistant_response", { model: "claude-sonnet-5-5", response_length: "28" })).details).toEqual(["claude-sonnet-5-5"]);
+  expect(spanRow(withAttrs("assistant_response", { model: "event-model", response_length: "28" }, { model: "claude-sonnet-5-5" })).details).toEqual(["claude-sonnet-5-5"]);
 });
 
-test("a subagent shows its type, model and totals", () => {
-  const row = spanRow(withAttrs("subagent_completed", { agent_type: "Explore", model: "m", total_tokens: "19884", total_tool_uses: "3" }));
-  expect(row.details).toEqual(["m", "agent Explore", "tokens 19884, 3 tool uses"]);
+test("a subagent span shows its model but ignores event attributes", () => {
+  const row = spanRow(withAttrs("subagent_completed", { agent_type: "Explore", model: "event-model", total_tokens: "19884", total_tool_uses: "3" }, { model: "m" }));
+  expect(row.details).toEqual(["m"]);
 });
 
-test("an mcp connection shows its status and transport", () => {
-  expect(spanRow(withAttrs("mcp_server_connection", { status: "connected", transport_type: "http" })).details).toEqual(["connected over http"]);
+test("an mcp connection ignores event attributes", () => {
+  expect(spanRow(withAttrs("mcp_server_connection", { status: "connected", transport_type: "http" })).details).toEqual([]);
 });

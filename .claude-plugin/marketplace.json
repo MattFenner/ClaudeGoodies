@@ -12,7 +12,7 @@
     {
       "name": "pixels",
       "source": "./plugins/pixels",
-      "description": "A timeline above the prompt with a cell per second of activity, and a /spans pane with the details."
+      "description": "A timeline above the prompt with a cell per second of activity, and a /pixels pane with the details."
     }
   ],
   "description": "Claude plugins and other goodies by Matt Fenner"

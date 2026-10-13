@@ -1,6 +1,6 @@
 import { expect, test } from "claude-code/testing";
 
-import { makeSpans, sinceLastPrompt } from "./spans";
+import { kindOf, makeSpans, sinceLastPrompt } from "./spans";
 
 const at = (s: number) => new Date(Date.UTC(2026, 9, 13, 4, 0, s)).toISOString();
 const ms = (s: number) => Date.UTC(2026, 9, 13, 4, 0, s);
@@ -66,12 +66,12 @@ test("an api_request is a span ending when it was logged", () => {
   const [span] = makeSpans([
     { type: "api_request", timestamp: at(10), attributes: { duration_ms: "2109" } },
   ]);
-  expect(span).toMatchObject({ kind: "api", type: "api_request", start: ms(10) - 2109, end: ms(10), durationMs: 2109 });
+  expect(span).toMatchObject({ kind: "other", type: "api_request", start: ms(10) - 2109, end: ms(10), durationMs: 2109 });
 });
 
 test("any other event is an instant", () => {
   const [span] = makeSpans([{ type: "user_prompt", timestamp: at(2) }]);
-  expect(span).toMatchObject({ kind: "instant", type: "user_prompt", start: ms(2), end: ms(2), durationMs: 0 });
+  expect(span).toMatchObject({ kind: "user", type: "user_prompt", start: ms(2), end: ms(2), durationMs: 0 });
 });
 
 test("spans stay in the order they began", () => {
@@ -146,4 +146,15 @@ test("model calls the session makes for itself make no spans", () => {
 
 test("events with no query_source are kept", () => {
   expect(makeSpans([{ type: "user_prompt", timestamp: at(1) }, decision(2, "t1")])).toHaveLength(2);
+});
+
+test("kindOf sorts events into tool, user, mcp, agent and other", () => {
+  expect(kindOf("tool_decision", { tool_name: "Bash", tool_source: "builtin" })).toBe("tool");
+  expect(kindOf("tool_result", { tool_name: "mcp__todo__todos" })).toBe("mcp");
+  expect(kindOf("tool_decision", { tool_source: "mcp" })).toBe("mcp");
+  expect(kindOf("mcp_server_connection")).toBe("mcp");
+  expect(kindOf("user_prompt")).toBe("user");
+  expect(kindOf("subagent_completed")).toBe("agent");
+  expect(kindOf("api_request")).toBe("other");
+  expect(kindOf("assistant_response")).toBe("other");
 });
