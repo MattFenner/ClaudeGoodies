@@ -2,6 +2,8 @@ import { expect, test } from "claude-code/testing";
 
 import { kindOf, makeSpans, sinceLastPrompt } from "./spans";
 
+import type { ToolSpan, UserSpan } from "./spans";
+
 const at = (s: number) => new Date(Date.UTC(2026, 9, 13, 4, 0, s)).toISOString();
 const ms = (s: number) => Date.UTC(2026, 9, 13, 4, 0, s);
 
@@ -28,14 +30,14 @@ test("a tool_decision and tool_result make one tool span", () => {
     success: true,
     toolUseId: "t1",
   });
-  expect(spans[0].events.length).toBe(2);
+  expect(spans[0]?.events.length).toBe(2);
 });
 
 test("a tool call with no result yet is an open span", () => {
   const [span] = makeSpans([decision(1, "t1")]);
-  expect(span.end).toBeUndefined();
-  expect(span.durationMs).toBeUndefined();
-  expect(span.start).toBe(ms(1));
+  expect(span?.end).toBeUndefined();
+  expect(span?.durationMs).toBeUndefined();
+  expect(span?.start).toBe(ms(1));
 });
 
 test("a rejected tool call is a closed, unsuccessful span", () => {
@@ -50,7 +52,7 @@ test("overlapping tool calls pair up by tool_use_id", () => {
     result(4, "b", "1000", "true", "Grep"),
     result(6, "a", "2000", "false", "Read"),
   ]);
-  expect(spans.map((s) => [s.type, s.durationMs, s.success])).toEqual([
+  expect(spans.map((s) => [s.type, s.durationMs, (s as ToolSpan).success])).toEqual([
     ["tool_Read", 2000, false],
     ["tool_Grep", 1000, true],
   ]);
@@ -103,8 +105,8 @@ test("what the tool.call hook saw is attached to the matching tool span", () => 
   const spans = makeSpans([decision(1, "t1"), decision(2, "t2", "Bash"), result(3, "t1", "100")], {
     t1: { tool: "Glob", summary: "pattern: **/*" },
   });
-  expect(spans[0].call).toEqual({ tool: "Glob", summary: "pattern: **/*" });
-  expect(spans[1].call).toBeUndefined();
+  expect((spans[0] as ToolSpan).call).toEqual({ tool: "Glob", summary: "pattern: **/*" });
+  expect((spans[1] as ToolSpan).call).toBeUndefined();
 });
 
 test("a user_prompt takes the text of the closest prompt.submit", () => {
@@ -119,12 +121,12 @@ test("a user_prompt takes the text of the closest prompt.submit", () => {
       { at: ms(11), text: "first" },
     ],
   );
-  expect(spans.map((s) => s.prompt)).toEqual(["first", "second"]);
+  expect(spans.map((s) => (s as UserSpan).prompt)).toEqual(["first", "second"]);
 });
 
 test("a prompt too far from any submission stays without text", () => {
   const [span] = makeSpans([{ type: "user_prompt", timestamp: at(10) }], {}, [{ at: ms(30), text: "late" }]);
-  expect(span.prompt).toBeUndefined();
+  expect((span as UserSpan).prompt).toBeUndefined();
 });
 
 test("model calls the session makes for itself make no spans", () => {
@@ -137,7 +139,7 @@ test("model calls the session makes for itself make no spans", () => {
     call("api_request", "agent:builtin:Explore", 5),
     call("assistant_response", "repl_main_thread", 6),
   ]);
-  expect(spans.map((s) => [s.type, s.events[0].attributes?.query_source])).toEqual([
+  expect(spans.map((s) => [s.type, s.events[0]?.attributes?.query_source])).toEqual([
     ["api_request", "repl_main_thread"],
     ["api_request", "agent:builtin:Explore"],
     ["assistant_response", "repl_main_thread"],

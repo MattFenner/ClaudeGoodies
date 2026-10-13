@@ -13,7 +13,7 @@ const span = (over: Partial<Span>): Span => ({
   durationMs: 0,
   events: [],
   ...over,
-});
+}) as Span;
 
 test("a finished tool call shows its name, time, duration and ok", () => {
   expect(spanRow(span({ kind: "tool", type: "tool_Glob", end: start + 2400, durationMs: 2400, success: true }))).toEqual({

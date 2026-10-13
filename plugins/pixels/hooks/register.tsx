@@ -144,7 +144,7 @@ async function terminalRender(
 ) {
   const events = await read($, eventsAtom);
 
-  const { Box, Raster, Text } = $.ui.resolve(e);
+  const { Box, Raster } = $.ui.resolve(e);
 
   // leave a gap on the right for the close button
   const columns = (e.viewport?.columns ?? 100) - 5;
