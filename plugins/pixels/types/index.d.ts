@@ -29,6 +29,6 @@ export type PromptInfo = {
 
 declare module 'claude-code' {
   interface PluginState {
-    'turn-pixels': { events: Event[]; toolCalls: Record<string, ToolCallInfo>; prompts: PromptInfo[] }
+    'pixels': { events: Event[]; toolCalls: Record<string, ToolCallInfo>; prompts: PromptInfo[] }
   }
 }

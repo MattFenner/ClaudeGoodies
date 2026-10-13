@@ -9,17 +9,17 @@ import { callInfo, callOutcome, keepNewest, summarizePrompt } from "./tools";
 import { LOG_DIR, staleLogs, toJsonl } from "./log";
 
 // Every telemetry entry the collector has seen this session, oldest first.
-const eventsAtom = atom({ plugin: "turn-pixels", key: "events" } as const, []);
+const eventsAtom = atom({ plugin: "pixels", key: "events" } as const, []);
 
 // What the tool.call hook learned about each call, keyed by tool_use_id. Joined
 // onto the tool spans when they are built. Kept in memory only, never logged,
 // since tool arguments can hold paths and commands.
-const toolCallsAtom = atom({ plugin: "turn-pixels", key: "toolCalls" } as const, {});
+const toolCallsAtom = atom({ plugin: "pixels", key: "toolCalls" } as const, {});
 const MAX_TOOL_CALLS = 500;
 
 // The prompts the prompt.submit hook saw, with when. Telemetry redacts the text.
 // In memory only, like the tool calls.
-const promptsAtom = atom({ plugin: "turn-pixels", key: "prompts" } as const, []);
+const promptsAtom = atom({ plugin: "pixels", key: "prompts" } as const, []);
 const MAX_PROMPTS = 50;
 
 // $.fs has no append, so the session's file is rewritten from the events atom.

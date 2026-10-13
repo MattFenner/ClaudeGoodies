@@ -1,11 +1,11 @@
-# turn-pixels plugin
+# pixels plugin
 
 A Claude Code mod that draws a timeline of the session above the prompt, one cell per second of activity, and adds a `/spans` pane with the details. See the [repo README](../../README.md) for more.
 
 ## Install
 
 ```
-/plugin install turn-pixels --marketplace MattFenner/ClaudeGoodies
+/plugin install pixels --marketplace MattFenner/ClaudeGoodies
 ```
 
 ## What it does
@@ -19,7 +19,7 @@ Telemetry redacts prompt text and tool arguments, so the plugin hooks `prompt.su
 ## Layout
 
 ```
-plugins/turn-pixels/
+plugins/pixels/
 ├── .claude-plugin/plugin.json   manifest
 ├── hooks/
 │   ├── hooks.json               points at register.tsx
@@ -41,7 +41,7 @@ Everything except `register.tsx` is plain functions, because the engine will not
 From the repo root:
 
 ```bash
-claude --plugin-dir ./plugins/turn-pixels
+claude --plugin-dir ./plugins/pixels
 ```
 
 Claude Code hot-reloads on save. Use `/spans` to open the pane.
@@ -49,7 +49,7 @@ Claude Code hot-reloads on save. Use `/spans` to open the pane.
 ## Check your work
 
 ```bash
-scripts/check.sh turn-pixels
+scripts/check.sh pixels
 ```
 
 Types are written by Claude Code when it loads the plugin (see the [todo plugin README](../todo/README.md#set-up-types-once-per-machine)).

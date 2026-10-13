@@ -14,14 +14,14 @@ Install it:
 /plugin install todo --marketplace MattFenner/ClaudeGoodies
 ```
 
-### turn-pixels
+### pixels
 
 A timeline above the prompt with one cell per second of each tool call, model request and prompt, plus a `/spans` pane with the details. Session logs are kept for 7 days.
 
 Install it:
 
 ```bash
-/plugin install turn-pixels --marketplace MattFenner/ClaudeGoodies
+/plugin install pixels --marketplace MattFenner/ClaudeGoodies
 ```
 
 ## Developing
