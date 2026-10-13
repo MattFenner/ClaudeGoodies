@@ -1,0 +1,10 @@
+{
+  "name": "turn-pixels",
+  "version": "0.1.0",
+  "description": "A timeline above the prompt with a cell per second of each turn's activity, and a /spans pane with the details.",
+  "author": {
+    "name": "Matt Fenner"
+  },
+  "license": "MIT",
+  "types": "./types/index.d.ts"
+}
