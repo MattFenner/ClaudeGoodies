@@ -31,8 +31,6 @@ function labelOf(span: Span): string {
       return span.prompt ?? "user_prompt";
     case "tool":
       return span.toolName ?? span.call?.tool ?? (stripToolPrefix(span.type) || "tool");
-    case "mcp":
-      return span.type;
     case "other":
       return span.type;
   }

@@ -119,9 +119,9 @@ test("spanRows with no limit lists every span, oldest first", () => {
   expect(spanRows(spans).map((r) => r.label)).toEqual(["a", "b", "c", "d"]);
 });
 
-test("a user prompt shows its text and not its length", () => {
+test("a user prompt does not add detail lines from its prompt text because it's in the title", () => {
   const s = span({ kind: "user", prompt: "fix the bug", events: [{ type: "user_prompt", attributes: { prompt: "event prompt" } }] });
-  expect(spanRow(s).details).toEqual(["fix the bug"]);
+  expect(spanRow(s).details).toEqual([]);
 });
 
 test("event attributes do not become detail lines", () => {

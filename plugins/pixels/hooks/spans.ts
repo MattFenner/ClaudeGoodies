@@ -7,10 +7,9 @@ import type { Event, PromptInfo, ToolCallInfo } from "../types";
 // api_request becomes a span ending when it was logged. Every other event is an
 // instant, a span that starts and ends at the same moment.
 //
-// Its kind says whose it is: a tool call, the user (prompts), an MCP tool or
-// server, a subagent, or other (model requests and the rest).
-// FIXME: hook?
-export type SpanKind = "tool" | "user" | "agent" | "mcp" | "other";
+// Its kind says whose it is: a tool call, the user (prompts), a subagent, or
+// other (model requests and the rest). MCP traffic is still treated as a tool.
+export type SpanKind = "tool" | "user" | "agent" | "other";
 export type ToolKind = "skill" | "command" | "mcp" | "other";
 
 export type SpanBase = {
@@ -44,17 +43,12 @@ export type AgentSpan = SpanBase & {
   agentId: string,
 }
 
-export type McpSpan = SpanBase & {
-  kind: 'mcp',
-  model?: string,
-}
-
 export type OtherSpan = SpanBase & {
   kind: 'other',
   model?: string
 }
 
-export type Span = UserSpan | ToolSpan | AgentSpan | McpSpan | OtherSpan;
+export type Span = UserSpan | ToolSpan | AgentSpan | OtherSpan;
 
 // export type Span = {
 //   kind: SpanKind;
@@ -82,9 +76,9 @@ export function kindOf(type: string, attrs: Record<string, unknown> = {}): SpanK
   if (type === "tool_decision" || type === "tool_result") {
     const name = String(attrs.tool_name ?? "");
     const source = String(attrs.tool_source ?? "");
-    return name.startsWith("mcp__") || source === "mcp" ? "mcp" : "tool";
+    return name.startsWith("mcp__") || source === "mcp" ? "tool" : "tool";
   }
-  if (type.startsWith("mcp_")) return "mcp";
+  if (type.startsWith("mcp_")) return "tool";
   if (type.startsWith("user_")) return "user";
   if (type.startsWith("subagent")) return "agent";
   return "other";
@@ -175,13 +169,14 @@ export function makeSpans(
       spans.push({ kind: "user", type: event.type, start: at, end: at, durationMs: 0, events: [event] });
     } else if (event.type.startsWith("mcp_")) {
       spans.push({
-        kind: "mcp",
+        kind: "tool",
         type: event.type,
+        toolKind: "mcp",
         start: at,
         end: at,
         durationMs: 0,
         events: [event],
-      });
+      } as ToolSpan);
     } else {
       spans.push({ kind: 'other', type: event.type, start: at, end: at, durationMs: 0, events: [event] });
     }

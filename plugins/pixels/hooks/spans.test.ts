@@ -148,11 +148,11 @@ test("events with no query_source are kept", () => {
   expect(makeSpans([{ type: "user_prompt", timestamp: at(1) }, decision(2, "t1")])).toHaveLength(2);
 });
 
-test("kindOf sorts events into tool, user, mcp, agent and other", () => {
+test("kindOf sorts events into tool, user, agent and other", () => {
   expect(kindOf("tool_decision", { tool_name: "Bash", tool_source: "builtin" })).toBe("tool");
-  expect(kindOf("tool_result", { tool_name: "mcp__todo__todos" })).toBe("mcp");
-  expect(kindOf("tool_decision", { tool_source: "mcp" })).toBe("mcp");
-  expect(kindOf("mcp_server_connection")).toBe("mcp");
+  expect(kindOf("tool_result", { tool_name: "mcp__todo__todos" })).toBe("tool");
+  expect(kindOf("tool_decision", { tool_source: "mcp" })).toBe("tool");
+  expect(kindOf("mcp_server_connection")).toBe("tool");
   expect(kindOf("user_prompt")).toBe("user");
   expect(kindOf("subagent_completed")).toBe("agent");
   expect(kindOf("api_request")).toBe("other");
