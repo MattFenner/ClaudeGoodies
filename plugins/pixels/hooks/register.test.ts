@@ -39,10 +39,11 @@ const assistantResponse = {
   loggedAt: "2026-10-13T04:24:15.567Z",
 } as TelemetryRecordEntry;
 
-test("normalizeEvent keeps the type, timestamp and attributes", () => {
+test("normalizeEvent keeps the important fields", () => {
   expect(normalizeEvent(apiRequest)).toEqual({
     type: "api_request",
     timestamp: "2026-10-13T04:24:15.567Z",
+    model: "claude-sonnet-5-5",
     attributes: apiRequest.attributes,
   });
 });
@@ -61,38 +62,30 @@ test("normalizeEvent drops the attributes that identify the user or session", ()
   expect(attributes).toEqual(apiRequest.attributes);
 });
 
-const BLACK = 0x000000;
-
-test("an api_request entry is black on grey", () => {
-  expect(styleOf(modelSpan({ type: normalizeEvent(apiRequest).type }))).toEqual({
-    foreground: BLACK,
-    background: 0xbebebe,
-  });
+test("an api_request entry is grey", () => {
+  expect(styleOf(modelSpan({ type: normalizeEvent(apiRequest).type }))).toEqual({ color: 0xbebebe });
 });
 
-test("an assistant_response entry is black on light blue", () => {
-  expect(styleOf(harnessEventSpan({ type: normalizeEvent(assistantResponse).type, eventKind: "assistant_response" }))).toEqual({
-    foreground: BLACK,
-    background: 0x6CB6C4,
-  });
+test("an assistant_response entry is white", () => {
+  expect(styleOf(harnessEventSpan({ type: normalizeEvent(assistantResponse).type, eventKind: "assistant_response" }))).toEqual({ color: 0xffffff });
 });
 
-test("user_input is black on the default background", () => {
-  expect(styleOf(userSpan({ type: "user_input" }))).toEqual({ foreground: BLACK, background: COLOR_NONE });
+test("user_input has the default color", () => {
+  expect(styleOf(userSpan({ type: "user_input" }))).toEqual({ color: COLOR_NONE });
 });
 
-test("tool_ events are black on olive", () => {
-  expect(styleOf(toolSpan({ type: "tool_call" }))).toEqual({ foreground: BLACK, background: 0xadbb6d });
+test("tool_ events take the tool color", () => {
+  expect(styleOf(toolSpan({ type: "tool_call" }))).toEqual({ color: 0xBB9C6D });
 });
 
-test("mcp_ events are black on green", () => {
-  expect(styleOf(toolSpan({ type: "mcp_request", toolKind: "mcp" }))).toEqual({ foreground: BLACK, background: 0xa6cf7f });
+test("mcp_ events take the mcp color", () => {
+  expect(styleOf(toolSpan({ type: "mcp_request", toolKind: "mcp" }))).toEqual({ color: 0xC3CF7F });
 });
 
-test("user_prompt is black on the default background", () => {
-  expect(styleOf(userSpan({ type: "user_prompt" }))).toEqual({ foreground: BLACK, background: COLOR_NONE });
+test("user_prompt has the default color", () => {
+  expect(styleOf(userSpan({ type: "user_prompt" }))).toEqual({ color: COLOR_NONE });
 });
 
-test("agent spans are black on purple", () => {
-  expect(styleOf(agentSpan({ type: "subagent_completed" }))).toEqual({ foreground: BLACK, background: 0x9c5cac });
+test("agent spans take the agent color", () => {
+  expect(styleOf(agentSpan({ type: "subagent_completed" }))).toEqual({ color: 0x9c5cac });
 });

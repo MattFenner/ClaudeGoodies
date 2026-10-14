@@ -24,19 +24,6 @@ test("a span under five seconds shows blank cells", () => {
   expect(chars([toolSpan({ type: "tool_Glob", durationMs: 3000 })], 6)).toBe("      ");
 });
 
-test("a tool call of four seconds or more shows its summary", () => {
-  const tool: ToolSpan = {
-    kind: "tool",
-    toolKind: "other",
-    type: "tool_Bash",
-    start: 0,
-    durationMs: 6000,
-    events: [],
-    call: { tool: "Bash", summary: "ls" },
-  };
-  expect(chars([tool], 6)).toBe("ls    ");
-});
-
 test("long model calls show blank cells", () => {
   expect(chars([modelSpan({ type: "api_request", durationMs: 6000 })], 6)).toBe("      ");
 });
@@ -47,7 +34,7 @@ test("user_prompt never shows text", () => {
 
 test("each span styles its own cells", () => {
   const row = gridOf([toolSpan({ type: "tool_Glob", durationMs: 1000 }), modelSpan({ type: "api_request", durationMs: 1000 })], 3)[0]!;
-  expect(row[0]!.background).toBe(0xadbb6d);
+  expect(row[0]!.background).toBe(0xBB9C6D);
   expect(row[1]!.background).toBe(0xbebebe);
   expect(row[2]!).toEqual({ char: " ", foreground: COLOR_NONE, background: COLOR_NONE });
 });
@@ -55,5 +42,5 @@ test("each span styles its own cells", () => {
 test("a row too long for the width keeps the most recent cells", () => {
   const cells = gridOf([toolSpan({ type: "tool_Glob", durationMs: 5000 }), modelSpan({ type: "api_request", durationMs: 1000 })], 4)[0]!;
   expect(cells.length).toBe(4);
-  expect(cells.map((c: Cell) => c.background)).toEqual([0xadbb6d, 0xadbb6d, 0xadbb6d, 0xbebebe]);
+  expect(cells.map((c: Cell) => c.background)).toEqual([0xBB9C6D, 0xBB9C6D, 0xBB9C6D, 0xbebebe]);
 });

@@ -38,6 +38,7 @@ export const modelSpan = (override: Partial<ModelSpan> = {}): ModelSpan => ({
   model: "haiku",
   start: 0,
   durationMs: 0,
+  count: 1,
   events: [],
   ...override,
 });
@@ -48,6 +49,7 @@ export const harnessEventSpan = (override: Partial<HarnessEventSpan> = {}): Harn
   eventKind: "plugin_loaded",
   start: 0,
   durationMs: 0,
+  count: 1,
   events: [],
   ...override,
 });

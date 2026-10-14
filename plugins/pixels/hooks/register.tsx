@@ -42,11 +42,14 @@ function writeLog($: EngineInterface): void {
   logQueue = logQueue
     .then(async () => {
       const dir = `${$.plugin.root}/${LOG_DIR}`;
-      const path = `${dir}/${await $.session.id()}.jsonl`;
-      await $.fs.write(path, toJsonl(await read($, eventsAtom)));
+      const pathPrefix = `${dir}/${await $.session.id()}`;
+      await $.fs.write(pathPrefix+ ".events.jsonl", toJsonl(await read($, eventsAtom)));
+      await $.fs.write(pathPrefix+ ".prompts.jsonl", toJsonl(await read($, promptsAtom)));
+      await $.fs.write(pathPrefix+ ".tools.jsonl", toJsonl(await read($, toolCallsAtom)));
       if (!hasPruned) {
         hasPruned = true;
-        await pruneLogs($, dir, path);
+        await pruneLogs($, dir, pathPrefix+ ".events.jsonl");
+        await pruneLogs($, dir, pathPrefix+ ".prompts.jsonl");
       }
     })
     .catch((err) => $.ui.log(`events log write failed: ${err}`));
@@ -97,6 +100,7 @@ export const register: Register = (on) => {
 
   // Watches every prompt and always passes it on unchanged.
   on("prompt.submit", async ($, e, next) => {
+    $.ui.log(JSON.stringify(e));
     await update($, promptsAtom, (d) =>
       [...d, { at: Date.now(), text: summarizePrompt(e.text) }].slice(
         -MAX_PROMPTS,
@@ -136,7 +140,6 @@ export const register: Register = (on) => {
 
   on("telemetry.log", { to: "collector" }, async ($, e, next) => {
     await update($, eventsAtom, (d) => [...d, normalizeEvent(e)]);
-    writeLog($);
     return next(e);
   });
 
@@ -147,6 +150,7 @@ export const register: Register = (on) => {
     
     // FIXME: render for desktop
 
+    writeLog($);
     return next(e);
   });
 

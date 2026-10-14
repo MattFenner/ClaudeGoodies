@@ -11,8 +11,7 @@ if [[ ${#plugins[@]} -eq 0 ]]; then
   for dir in "$root"/plugins/*/; do plugins+=("$(basename "$dir")"); done
 fi
 
-# Each tool runs from the plugin folder with "." or a relative path, so the same
-# commands work whatever the OS, and whatever kind of path the shell uses.
+# Ensure typescript files
 for plugin in "${plugins[@]}"; do
   dir="$root/plugins/$plugin"
   echo "=== plugin: $plugin ==="
@@ -28,16 +27,17 @@ for plugin in "${plugins[@]}"; do
     fi
   fi
 
-  (cd "$dir" && claude plugin validate .)
-  if compgen -G "$dir/tests/*.test.ts*" >/dev/null; then
-    (cd "$dir" && claude plugin test . | sed '/^(pass)/d')
-  fi
-
+  echo "checking typescript..."
   (cd "$dir" && npx -y -p typescript@5.6.3 tsc -p tsconfig.json)
-done
 
-# Lint covers the whole repo, so it runs once rather than once per plugin.
-echo "=== lint ==="
-(cd "$root" && npm run lint)
+  echo "lint..."
+  (cd "$root" && npm run lint)
+
+  echo "claude validate..."
+  (cd "$dir" && claude plugin validate .)
+
+  echo "claude test..."
+  (cd "$dir" && claude plugin test . | sed '/^(pass)/d')
+done
 
 echo "all checks passed"

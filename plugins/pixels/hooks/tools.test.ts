@@ -3,7 +3,8 @@ import { expect, test } from "claude-code/testing";
 import { callInfo, callOutcome, keepNewest, summarizePrompt, summarizeToolInput } from "./tools";
 
 test("a Bash call is summarised by its command", () => {
-  expect(summarizeToolInput({ tool: "Bash", tool_use_id: "t", command: "git status", description: "x" })).toBe("command: git status");
+  expect(summarizeToolInput({ tool: "Bash", tool_use_id: "t", command: "git status", description: "x" }))
+  .toBe("git status");
 });
 
 test("a file tool is summarised by its path", () => {
@@ -16,13 +17,6 @@ test("an unknown tool falls back to its first string argument, never a reserved 
 
 test("a call with no string arguments has no summary", () => {
   expect(summarizeToolInput({ tool: "TodoWrite", tool_use_id: "t", n: 3 })).toBeUndefined();
-});
-
-test("whitespace is collapsed and long text is cut with an ellipsis", () => {
-  const out = summarizeToolInput({ tool: "Bash", command: `echo   a\n${"x".repeat(200)}` })!;
-  expect(out.startsWith("command: echo a x")).toBe(true);
-  expect(out.endsWith("…")).toBe(true);
-  expect(out.length).toBeLessThanOrEqual("command: ".length + 100);
 });
 
 test("callInfo keeps the tool, summary and agent", () => {

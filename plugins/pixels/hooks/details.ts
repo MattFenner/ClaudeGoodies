@@ -40,8 +40,14 @@ function labelOf(span: Span): string {
       return span.toolName ?? span.call?.tool ?? (stripToolPrefix(span.type) || "tool");
     case "model":
       return span.model;
-    case "harnessevent":
-      return span.eventKind.replaceAll("_", " ");
+    case "harnessevent": {
+      const kind = span.eventKind.replaceAll("_", " ");
+      const source = normalizeEventSource(span.source);
+      if (source) {
+        return `${kind} (${source})`;
+      }
+      return kind;
+    }
     default: {
       const _exhaustiveCheck: never = span;
       return _exhaustiveCheck;
@@ -92,3 +98,10 @@ export function detailLines(span: Span): string[] {
 export function spanRows(spans: Span[]): SpanRow[] {
   return spans.map(s => spanRow(s));
 }
+function normalizeEventSource(source: string | undefined) : string | undefined {
+  if (source === 'repl_main_thread') {
+    return undefined;
+  }
+  return source?.replaceAll("_", " ");
+}
+

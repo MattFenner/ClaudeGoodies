@@ -33,7 +33,7 @@ test("a finished tool call shows its name, time, duration and ok", () => {
     label: "Glob",
     duration: "2.4s",
     status: "ok",
-    style: { foreground: 0x000000, background: 0xadbb6d },
+    style: { color: 0xbb9c6d },
     details: [],
   });
 });
@@ -74,7 +74,14 @@ test("an open tool call says running with no duration yet", () => {
 
 test("an api request is labelled with its model and shows a duration but no status", () => {
   expect(
-    spanRow(span({ kind: "model", type: "api_request", model: "claude-sonnet-5-5", durationMs: 2109 })),
+    spanRow(
+      span({
+        kind: "model",
+        type: "api_request",
+        model: "claude-sonnet-5-5",
+        durationMs: 2109,
+      }),
+    ),
   ).toMatchObject({
     label: "claude-sonnet-5-5",
     duration: "2.1s",
@@ -125,24 +132,20 @@ test("a span with nothing worth showing has no detail lines", () => {
   expect(spanRow(span({})).details).toEqual([]);
 });
 
-test("what the tool.call hook saw leads the detail lines", () => {
+test("tool.call enriches details", () => {
   const s = span({
     kind: "tool",
     type: "tool_Bash",
     call: {
       tool: "Bash",
-      summary: "command: git status",
+      summary: "git status",
       agentId: "ag1",
       outcome: "ok",
       isReadOnly: true,
     },
     events: [{ type: "tool_decision", attributes: { tool_source: "builtin" } }],
   });
-  expect(spanRow(s).details).toEqual([
-    "command: git status",
-    "in subagent ag1",
-    "read-only",
-  ]);
+  expect(spanRow(s).details).toEqual(["git status", "in subagent ag1"]);
 });
 
 test("a denied call shows why", () => {
@@ -161,16 +164,18 @@ test("spanRows with no limit lists every span, oldest first", () => {
   expect(spanRows(spans).map((r) => r.label)).toEqual(["a", "b", "c", "d"]);
 });
 
-test("a user prompt does not add detail lines from its prompt text because it's in the title", () => {
+test("user prompt label and details", () => {
   const s = span({
     kind: "user",
     prompt: "fix the bug",
-    events: [{ type: "user_prompt", attributes: { prompt: "event prompt" } }],
+    events: [{ type: "user_prompt", attributes: {} }],
   });
-  expect(spanRow(s).details).toEqual([]);
+  const row = spanRow(s);
+  expect(row.label).toEqual("prompt: fix the bug");
+  expect(row.details).toEqual([]);
 });
 
-test("event attributes do not become detail lines", () => {
+test("model event details", () => {
   const row = spanRow(
     withAttrs(
       "api_request",
@@ -181,7 +186,7 @@ test("event attributes do not become detail lines", () => {
   expect(row.details).toEqual([]);
 });
 
-test("tool event attributes do not become detail lines", () => {
+test("tool decision details", () => {
   expect(
     spanRow(
       withAttrs(
@@ -202,7 +207,7 @@ test("decision event attributes do not become detail lines", () => {
   expect(detailsOf({ decision: "accept", source: "config" })).toEqual([]);
 });
 
-test("skill event attributes do not become detail lines", () => {
+test("skill event details", () => {
   expect(
     spanRow(
       withAttrs("skill_activated", {
@@ -213,19 +218,19 @@ test("skill event attributes do not become detail lines", () => {
   ).toEqual([]);
 });
 
-test("an assistant response shows its name and not its length", () => {
-  expect(
-    spanRow(
-      withAttrs(
-        "assistant_response",
-        { model: "event-model", response_length: "28" },
-        { kind: "harnessevent", eventKind: "assistant_response" },
-      ),
-    ).details,
-  ).toEqual(["assistant response"]);
+test("assistant response label & details", () => {
+  const row = spanRow(
+    withAttrs(
+      "assistant_response",
+      { model: "event-model", response_length: "28" },
+      { kind: "harnessevent", eventKind: "assistant_response" },
+    ),
+  );
+  expect(row.label).toEqual("assistant response");
+  expect(row.details).toEqual([]);
 });
 
-test("a subagent span ignores event attributes", () => {
+test("subagent details", () => {
   const row = spanRow(
     withAttrs(
       "subagent_completed",
@@ -241,7 +246,7 @@ test("a subagent span ignores event attributes", () => {
   expect(row.details).toEqual([]);
 });
 
-test("an mcp connection ignores event attributes", () => {
+test("mcp connection details", () => {
   expect(
     spanRow(
       withAttrs("mcp_server_connection", {
