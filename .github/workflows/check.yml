@@ -24,13 +24,13 @@ jobs:
         with:
           node-version: 22
 
+      - name: Install dependencies
+        run: npm ci
+
       - name: Install Claude Code
         run: npm install -g @anthropic-ai/claude-code
 
-      - name: Validate the marketplace
-        run: claude plugin validate .
-
-      # The type-check needs types that Claude Code only writes in an interactive session,
-      # so CI validates and tests; run scripts/check.sh without the flag locally for tsc.
       - name: Validate and test the plugins
-        run: bash scripts/check.sh --skip-tsc
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+        run: bash scripts/check.sh

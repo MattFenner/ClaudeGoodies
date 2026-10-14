@@ -8,6 +8,11 @@
       "name": "todo",
       "source": "./plugins/todo",
       "description": "A persistent todo list. Invoke with /todo. Shows as a UI panel in the right sidebar."
+    },
+    {
+      "name": "pixels",
+      "source": "./plugins/pixels",
+      "description": "A timeline above the prompt with a cell per second of activity, and a /pixels pane with the details."
     }
   ],
   "description": "Claude plugins and other goodies by Matt Fenner"

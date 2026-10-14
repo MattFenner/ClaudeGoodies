@@ -1,4 +1,4 @@
-import type { Elements } from "claude-code";
+import type { Elements, RenderElement } from "claude-code";
 
 import type { Todo, TodoStore } from "../types";
 
@@ -9,13 +9,13 @@ export const PANE = "todo";
 export async function renderPane(
   els: Elements[keyof Elements],
   store: TodoStore,
-) {
+): Promise<RenderElement> {
   const { Box, Text, Button } = els;
   const list = await store.getAll();
   const openTodos = list.filter((t) => !t.isDone);
   const doneTodos = list.filter((t) => t.isDone);
 
-  const row = (t: Todo) => (
+  const row = (t: Todo): RenderElement => (
     <Box
       key={`row-${t.id}`}
       flexDirection="row"
