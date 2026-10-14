@@ -6,8 +6,8 @@ const DAY = 24 * 60 * 60 * 1000;
 const now = Date.UTC(2026, 9, 13);
 
 test("toJsonl writes one line per event", () => {
-  const out = toJsonl([{ type: "a", attributes: { n: 1 } }, { type: "b" }]);
-  expect(out.split("\n")).toEqual(['{"type":"a","attributes":{"n":1}}', '{"type":"b"}', ""]);
+  const out = toJsonl([{ type: "a", attributes: { n: 1 } }, { type: "b", attributes: {} }]);
+  expect(out.split("\n")).toEqual(['{"type":"a","attributes":{"n":1}}', '{"type":"b","attributes":{}}', ""]);
 });
 
 test("staleLogs picks only .jsonl files older than 7 days, never the kept one", () => {

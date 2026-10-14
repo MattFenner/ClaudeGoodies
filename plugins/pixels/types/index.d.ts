@@ -1,11 +1,12 @@
 export type EventType = 'assistant_response' | 'user_input' | 'system_event' | "user_prompt" | "tool_decision" | "api_request" | string;
 export type Event = {
   type: EventType;
+  command?: string;
+  prompt?: string;
   model?: string;
   source?: string;
   timestamp?: string;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  attributes?: Record<string, any>;
+  attributes: Record<string, TelemetryRecordEntry["attributes"][string]>;
 };
 
 // What the tool.call hook learns about a call, keyed by tool_use_id in the state.

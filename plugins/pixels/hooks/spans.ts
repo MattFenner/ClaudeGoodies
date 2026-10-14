@@ -1,3 +1,4 @@
+import type { TelemetryAttribute } from "claude-code";
 import type { Event, PixelsState, ToolCallInfo } from "../types";
 import { replace as replaceIn } from "./functionalUtils";
 import type { Logger } from "./log";
@@ -11,17 +12,16 @@ import type { Logger } from "./log";
 //
 // Its kind says whose it is: a tool call, the user (prompts), a subagent, or
 // other (model requests and the rest). MCP traffic is still treated as a tool.
-export type SpanKind = "tool" | "user" | "agent" | "model" | "other";
+export type SpanKind = Span["kind"];
 export type ToolKind = "mcp" | "other"; // FIXME: support more e.g. skill, Bash/Powershell
 
 export type SpanBase = {
-  kind: SpanKind;
   start: number;
   end?: number;
   durationMs?: number;
   events: Event[];
 
-  // TODO: do we want these?
+  // TODO: do we want this?
   type: string;
 };
 
@@ -37,6 +37,7 @@ export type ToolSpan = SpanBase & {
 export type UserSpan = SpanBase & {
   kind: "user";
   prompt?: string;
+  command?: string;
 };
 
 export type AgentSpan = SpanBase & {
@@ -49,12 +50,32 @@ export type ModelSpan = SpanBase & {
   model: string;
 };
 
-export type OtherSpan = SpanBase & {
-  kind: "other";
-  source: string;
+export type HarnessEventSpan = SpanBase & {
+  kind: "harnessevent";
+  eventKind: HarnessEventKind;
 };
 
-export type Span = UserSpan | ToolSpan | AgentSpan | ModelSpan | OtherSpan;
+const KNOWN_HARNESS_EVENT_TYPES = ['plugin_loaded', 'assistant_response', 'skill_activated', 'permission_mode_changed'] as const;
+export type HarnessEventKind = typeof KNOWN_HARNESS_EVENT_TYPES[number] | string;
+
+function isKnownHarnessEventKind(event: Event) : boolean {
+  if (KNOWN_HARNESS_EVENT_TYPES.some((knownType) => knownType === event.type || knownType === event.source)) {
+    return true;
+  }
+  return false;
+}
+
+function harnessEventKindOf(event: Event): HarnessEventKind | undefined {
+  if (
+    typeof event.source === "string" &&
+    KNOWN_HARNESS_EVENT_TYPES.some((knownType) => knownType === event.source)
+  ) {
+    return event.source as HarnessEventKind;
+  }
+  return event.type;
+}
+
+export type Span = UserSpan | ToolSpan | AgentSpan | ModelSpan | HarnessEventSpan;
 
 // Attribute values arrive as strings ("68", "true"), whatever they mean.
 function num(value: unknown): number | undefined {
@@ -88,32 +109,16 @@ export function shouldIncludeEvent(event: Event): boolean {
 // How far apart (ms) a user_prompt event and the prompt.submit that raised it can be.
 const PROMPT_MATCH_MS = 5000;
 
-export function makeSpans(
-  state: PixelsState,
-  logger: Logger,
-): Span[] {
+export function makeSpans(state: PixelsState, logger: Logger): Span[] {
   let spans: Span[] = [];
   const openTools = new Map<string, ToolSpan>();
-  const {events, toolCalls, prompts} = state;
+  const { events, toolCalls, prompts } = state;
 
   for (const event of events.filter(shouldIncludeEvent)) {
     const attrs = event.attributes ?? {};
 
     if (event.type === "tool_decision") {
-      const rejected = attrs.decision !== "accept";
-      const toolUseId =
-        attrs.tool_use_id === undefined ? undefined : String(attrs.tool_use_id);
-      const span: ToolSpan = {
-        kind: "tool",
-        type: `tool_${attrs.tool_name ?? ""}`,
-        toolKind: toolKindOf(event),
-        toolName: attrs.tool_name,
-        ...timesOf(event),
-        toolUseId,
-        events: [event],
-      };
-      spans.push(span);
-      if (toolUseId && !rejected) openTools.set(toolUseId, span);
+      spans = handleToolDecisionEvent(attrs, event, spans, openTools);
     } else if (event.type === "tool_result") {
       const toolUseId =
         attrs.tool_use_id === undefined ? undefined : String(attrs.tool_use_id);
@@ -153,6 +158,8 @@ export function makeSpans(
         kind: "user",
         type: event.type,
         ...timesOf(event),
+        prompt: event.prompt,
+        command: event.command,
         events: [event],
       });
     } else if (event.type.startsWith("mcp_")) {
@@ -163,17 +170,26 @@ export function makeSpans(
         ...timesOf(event),
         events: [event],
       } as ToolSpan);
-    } else if (event.source) {
+    } else {
+
+      // known events we want to ignore
+      if (['retention_sweep'].includes(event.type)) continue;
+
+      if (!isKnownHarnessEventKind(event)) {
+        // unknown unknowns
+        // FIXME: remove when we are happy, or log somewhere more subtle
+        logger.logDebug(
+          `unknown event ${event.type} ${attrs["query_source"]} \n${JSON.stringify(event)} `,
+        );
+      }
+
       spans.push({
-        kind: "other",
+        kind: "harnessevent",
         type: event.type,
+        eventKind: harnessEventKindOf(event)!,
         ...timesOf(event),
-        source: event.source,
         events: [event],
       });
-    } else {
-      // unknown type
-      logger.logDebug(`unknown event ${event.type}: ${JSON.stringify(event, null, 2)}`)
     }
   }
 
@@ -205,6 +221,23 @@ export function makeSpans(
   }
 
   return spans;
+}
+
+function handleToolDecisionEvent(attrs: Record<string, TelemetryAttribute>, event: Event, spans: Span[], openTools: Map<string, ToolSpan>) : Span[] {
+  const rejected = attrs.decision !== "accept";
+  const toolUseId = attrs.tool_use_id === undefined ? undefined : String(attrs.tool_use_id);
+  const span: ToolSpan = {
+    kind: "tool",
+    type: `tool_${attrs.tool_name ?? ""}`,
+    toolKind: toolKindOf(event),
+    toolName: attrs.tool_name as string | undefined,
+    ...timesOf(event),
+    toolUseId,
+    events: [event],
+  };
+  if (toolUseId && !rejected) openTools.set(toolUseId, span);
+
+  return [...spans, span];
 }
 
 function timesOf(

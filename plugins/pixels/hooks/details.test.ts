@@ -7,8 +7,9 @@ import type { Span } from "./spans";
 const start = Date.UTC(2026, 9, 13, 4, 5, 6);
 const span = (over: Partial<Span>): Span =>
   ({
-    kind: "other",
+    kind: "model",
     type: "api_request",
+    model: "haiku",
     start,
     end: start,
     durationMs: 0,
@@ -32,6 +33,7 @@ test("a finished tool call shows its name, time, duration and ok", () => {
     label: "Glob",
     duration: "2.4s",
     status: "ok",
+    style: { foreground: 0x000000, background: 0xadbb6d },
     details: [],
   });
 });
@@ -70,11 +72,11 @@ test("an open tool call says running with no duration yet", () => {
   expect(row).toMatchObject({ status: "running", duration: "…" });
 });
 
-test("an api request keeps its type and shows a duration but no status", () => {
+test("an api request is labelled with its model and shows a duration but no status", () => {
   expect(
-    spanRow(span({ kind: "other", type: "api_request", durationMs: 2109 })),
+    spanRow(span({ kind: "model", type: "api_request", model: "claude-sonnet-5-5", durationMs: 2109 })),
   ).toMatchObject({
-    label: "api_request",
+    label: "claude-sonnet-5-5",
     duration: "2.1s",
     status: "",
   });
@@ -82,7 +84,7 @@ test("an api request keeps its type and shows a duration but no status", () => {
 
 test("an instant shows no duration or status", () => {
   expect(spanRow(span({ kind: "user", type: "user_prompt" }))).toMatchObject({
-    label: "user_prompt",
+    label: "user",
     duration: "",
     status: "",
   });
@@ -153,8 +155,8 @@ test("a denied call shows why", () => {
 });
 
 test("spanRows with no limit lists every span, oldest first", () => {
-  const spans = ["a", "b", "c", "d"].map((type) =>
-    withAttrs(type, { model: "m" }),
+  const spans = ["a", "b", "c", "d"].map((agentId) =>
+    span({ kind: "agent", type: "subagent_completed", agentId }),
   );
   expect(spanRows(spans).map((r) => r.label)).toEqual(["a", "b", "c", "d"]);
 });
@@ -173,7 +175,7 @@ test("event attributes do not become detail lines", () => {
     withAttrs(
       "api_request",
       { model: "m", query_source: "repl_main_thread", ttft_ms: "706" },
-      { kind: "other" },
+      { kind: "model", model: "m" },
     ),
   );
   expect(row.details).toEqual([]);
@@ -211,19 +213,19 @@ test("skill event attributes do not become detail lines", () => {
   ).toEqual([]);
 });
 
-test("an assistant response shows its model and not its length", () => {
+test("an assistant response shows its name and not its length", () => {
   expect(
     spanRow(
       withAttrs(
         "assistant_response",
         { model: "event-model", response_length: "28" },
-        { model: "claude-sonnet-5-5" },
+        { kind: "harnessevent", eventKind: "assistant_response" },
       ),
     ).details,
-  ).toEqual(["claude-sonnet-5-5"]);
+  ).toEqual(["assistant response"]);
 });
 
-test("a subagent span shows its model but ignores event attributes", () => {
+test("a subagent span ignores event attributes", () => {
   const row = spanRow(
     withAttrs(
       "subagent_completed",
@@ -233,10 +235,10 @@ test("a subagent span shows its model but ignores event attributes", () => {
         total_tokens: "19884",
         total_tool_uses: "3",
       },
-      { model: "m" },
+      { kind: "agent", agentId: "Explore" },
     ),
   );
-  expect(row.details).toEqual(["m"]);
+  expect(row.details).toEqual([]);
 });
 
 test("an mcp connection ignores event attributes", () => {

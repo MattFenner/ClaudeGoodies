@@ -22,7 +22,15 @@ const RESERVED_KEYS = new Set(["tool", "tool_use_id", "agentId", "requestMeta", 
 const MAX_SUMMARY = 100;
 
 // One line naming a call's most telling argument, e.g. "command: git status".
-export function summarizeToolInput(input: Record<string, unknown>): string | undefined {
+export function summarizeToolInput(name: string, input: Record<string, unknown>): string | undefined {
+  if (name === 'Edit') {
+    return String(input['path']);
+  }
+  else if (name === 'Bash') {
+    return String(input['command']);
+  }
+  
+  // general case
   const key =
     SUMMARY_KEYS.find((k) => typeof input[k] === "string" && input[k] !== "") ??
     Object.keys(input).find((k) => !RESERVED_KEYS.has(k) && typeof input[k] === "string" && input[k] !== "");
@@ -33,7 +41,7 @@ export function summarizeToolInput(input: Record<string, unknown>): string | und
 
 // What a tool.call hook learns before the call runs.
 export function callInfo(input: Record<string, unknown> & { tool: string; agentId?: string }): ToolCallInfo {
-  return { tool: input.tool, summary: summarizeToolInput(input), agentId: input.agentId };
+  return { tool: input.tool, summary: summarizeToolInput(input.tool, input), agentId: input.agentId };
 }
 
 type CallAnswer = {

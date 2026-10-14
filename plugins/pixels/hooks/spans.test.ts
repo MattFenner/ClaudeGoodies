@@ -33,9 +33,9 @@ test("a tool_decision and tool_result make one tool span", () => {
   expect(spans[0]).toMatchObject({
     kind: "tool",
     type: "tool_Glob",
-    start: ms(3),
+    start: ms(1),
     end: ms(5),
-    durationMs: 2000,
+    durationMs: 4000,
     success: true,
     toolUseId: "t1",
   });
@@ -62,8 +62,8 @@ test("overlapping tool calls pair up by tool_use_id", () => {
     result(6, "a", "2000", "false", "Read"),
   ]);
   expect(spans.map((s) => [s.type, s.durationMs, (s as ToolSpan).success])).toEqual([
-    ["tool_Read", 2000, false],
-    ["tool_Grep", 1000, true],
+    ["tool_Read", 5000, false],
+    ["tool_Grep", 3000, true],
   ]);
 });
 
@@ -75,21 +75,21 @@ test("a tool_result with no decision still makes a span", () => {
 
 test("an api_request is a span ending when it was logged", () => {
   const [span] = spansOf([
-    { type: "api_request", timestamp: at(10), attributes: { duration_ms: "2109" } },
+    { type: "api_request", timestamp: at(10), model: "claude-sonnet-5-5", attributes: { duration_ms: "2109" } },
   ]);
-  expect(span).toMatchObject({ kind: "other", type: "api_request", start: ms(10) - 2109, end: ms(10), durationMs: 2109 });
+  expect(span).toMatchObject({ kind: "model", type: "api_request", start: ms(10) - 2109, end: ms(10), durationMs: 2109 });
 });
 
 test("any other event is an instant", () => {
-  const [span] = spansOf([{ type: "user_prompt", timestamp: at(2) }]);
+  const [span] = spansOf([{ type: "user_prompt", timestamp: at(2), attributes: {} }]);
   expect(span).toMatchObject({ kind: "user", type: "user_prompt", start: ms(2), end: ms(2), durationMs: 0 });
 });
 
 test("spans stay in the order they began", () => {
   const spans = spansOf([
-    { type: "user_prompt", timestamp: at(1) },
+    { type: "user_prompt", timestamp: at(1), attributes: {} },
     decision(2, "t1"),
-    { type: "assistant_response", timestamp: at(3) },
+    { type: "assistant_response", timestamp: at(3), attributes: {} },
     result(4, "t1", "100"),
   ]);
   expect(spans.map((s) => s.type)).toEqual(["user_prompt", "tool_Glob", "assistant_response"]);
@@ -97,16 +97,16 @@ test("spans stay in the order they began", () => {
 
 test("sinceLastPrompt starts at the most recent user_prompt, keeping it", () => {
   const spans = spansOf([
-    { type: "user_prompt", timestamp: at(1) },
+    { type: "user_prompt", timestamp: at(1), attributes: {} },
     { type: "api_request", timestamp: at(2), attributes: {} },
-    { type: "user_prompt", timestamp: at(3) },
-    { type: "assistant_response", timestamp: at(4) },
+    { type: "user_prompt", timestamp: at(3), attributes: {} },
+    { type: "assistant_response", timestamp: at(4), attributes: {} },
   ]);
   expect(sinceLastPrompt(spans).map((s) => s.type)).toEqual(["user_prompt", "assistant_response"]);
 });
 
 test("sinceLastPrompt returns everything when there has been no prompt", () => {
-  const spans = spansOf([{ type: "api_request", timestamp: at(2), attributes: {} }]);
+  const spans = spansOf([{ type: "api_request", timestamp: at(2), model: "claude-sonnet-5-5", attributes: {} }]);
   expect(sinceLastPrompt(spans)).toHaveLength(1);
 });
 
@@ -121,8 +121,8 @@ test("what the tool.call hook saw is attached to the matching tool span", () => 
 test("a user_prompt takes the text of the closest prompt.submit", () => {
   const spans = spansOf(
     [
-      { type: "user_prompt", timestamp: at(10) },
-      { type: "user_prompt", timestamp: at(60) },
+      { type: "user_prompt", timestamp: at(10), attributes: {} },
+      { type: "user_prompt", timestamp: at(60), attributes: {} },
     ],
     {},
     [
@@ -134,12 +134,12 @@ test("a user_prompt takes the text of the closest prompt.submit", () => {
 });
 
 test("a prompt too far from any submission stays without text", () => {
-  const [span] = spansOf([{ type: "user_prompt", timestamp: at(10) }], {}, [{ at: ms(30), text: "late" }]);
+  const [span] = spansOf([{ type: "user_prompt", timestamp: at(10), attributes: {} }], {}, [{ at: ms(30), text: "late" }]);
   expect((span as UserSpan).prompt).toBeUndefined();
 });
 
 test("model calls the session makes for itself make no spans", () => {
-  const call = (type: string, query_source: string, s: number): Event => ({ type, timestamp: at(s), attributes: { query_source, duration_ms: "100" } });
+  const call = (type: string, query_source: string, s: number): Event => ({ type, timestamp: at(s), model: "claude-sonnet-5-5", attributes: { query_source, duration_ms: "100" } });
   const spans = spansOf([
     call("api_request", "repl_main_thread", 1),
     call("api_request", "prompt_suggestion", 2),
@@ -156,5 +156,5 @@ test("model calls the session makes for itself make no spans", () => {
 });
 
 test("events with no query_source are kept", () => {
-  expect(spansOf([{ type: "user_prompt", timestamp: at(1) }, decision(2, "t1")])).toHaveLength(2);
+  expect(spansOf([{ type: "user_prompt", timestamp: at(1), attributes: {} }, decision(2, "t1")])).toHaveLength(2);
 });

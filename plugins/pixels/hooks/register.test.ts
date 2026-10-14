@@ -1,10 +1,10 @@
 import { expect, test } from "claude-code/testing";
 import type { TelemetryRecordEntry } from "claude-code";
 
-import { COLOR_NONE, spanToCellStyle } from "./grid";
+import { COLOR_NONE, styleOf } from "./spanStyle";
 import { normalizeEvent } from "./events";
 
-import { otherSpan, toolSpan, userSpan } from "./spanFixtures";
+import { agentSpan, harnessEventSpan, modelSpan, toolSpan, userSpan } from "./spanFixtures";
 
 // Entries as telemetry.log delivers them (trimmed to the fields that matter;
 // the pasted samples had corrupted keys, e.g. a bare "qad" and a mangled
@@ -63,37 +63,36 @@ test("normalizeEvent drops the attributes that identify the user or session", ()
 
 const BLACK = 0x000000;
 
-test("an api_request entry is black on magenta", () => {
-  expect(spanToCellStyle(otherSpan({ type: normalizeEvent(apiRequest).type }))).toEqual({
+test("an api_request entry is black on grey", () => {
+  expect(styleOf(modelSpan({ type: normalizeEvent(apiRequest).type }))).toEqual({
     foreground: BLACK,
-    background: 0xffaaff,
+    background: 0xbebebe,
   });
 });
 
-test("an assistant_response entry is white on dark grey", () => {
-  expect(spanToCellStyle(otherSpan({ type: normalizeEvent(assistantResponse).type }))).toEqual({
-    foreground: 0xffffff,
-    background: 0x111111,
+test("an assistant_response entry is black on light blue", () => {
+  expect(styleOf(harnessEventSpan({ type: normalizeEvent(assistantResponse).type, eventKind: "assistant_response" }))).toEqual({
+    foreground: BLACK,
+    background: 0x6CB6C4,
   });
 });
 
-test("user_input is black on white", () => {
-  expect(spanToCellStyle(userSpan({ type: "user_input" }))).toEqual({ foreground: BLACK, background: 0xffffff });
+test("user_input is black on the default background", () => {
+  expect(styleOf(userSpan({ type: "user_input" }))).toEqual({ foreground: BLACK, background: COLOR_NONE });
 });
 
-test("tool_ events are black on blue", () => {
-  expect(spanToCellStyle(toolSpan({ type: "tool_call" }))).toEqual({ foreground: BLACK, background: 0xaaaaff });
+test("tool_ events are black on olive", () => {
+  expect(styleOf(toolSpan({ type: "tool_call" }))).toEqual({ foreground: BLACK, background: 0xadbb6d });
 });
 
 test("mcp_ events are black on green", () => {
-  expect(spanToCellStyle(toolSpan({ type: "mcp_request", toolKind: "mcp" }))).toEqual({ foreground: BLACK, background: 0xaaffaa });
+  expect(styleOf(toolSpan({ type: "mcp_request", toolKind: "mcp" }))).toEqual({ foreground: BLACK, background: 0xa6cf7f });
 });
 
 test("user_prompt is black on the default background", () => {
-  expect(spanToCellStyle(userSpan({ type: "user_prompt" }))).toEqual({ foreground: BLACK, background: COLOR_NONE });
+  expect(styleOf(userSpan({ type: "user_prompt" }))).toEqual({ foreground: BLACK, background: COLOR_NONE });
 });
 
-test("other events are black on magenta", () => {
-  expect(spanToCellStyle(otherSpan({ type: "Tool_result" }))).toEqual({ foreground: BLACK, background: 0xffaaff });
-  expect(spanToCellStyle(otherSpan({ type: "" }))).toEqual({ foreground: BLACK, background: 0xffaaff });
+test("agent spans are black on purple", () => {
+  expect(styleOf(agentSpan({ type: "subagent_completed" }))).toEqual({ foreground: BLACK, background: 0x9c5cac });
 });

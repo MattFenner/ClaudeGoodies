@@ -1,4 +1,4 @@
-import { atom, read, update } from "claude-code";
+import { atom, read, update, type Color } from "claude-code";
 
 import type {
   EngineInterface,
@@ -170,18 +170,29 @@ async function renderPane($: EngineInterface, e: RenderInput) : Promise<RenderEl
   // Everything since the last prompt: the pane scrolls its own body.
   const rows = spanRows(spans);
 
+  function colorOf(c: number): Color {
+    return `#${c.toString(16).padStart(6, "0")}`
+  }
+
   return (
     <Box flexDirection="column">
-      {rows.length === 0 && <Text dimColor>No spans yet.</Text>}
+      {rows.length === 0 && <Text dimColor>No data yet.</Text>}
       {rows.map((row) => (
         <Box flexDirection="column">
-          <Text
-            wrap="truncate"
-            color={row.status === "failed" ? "error" : undefined}
-            dimColor={row.status === "" && row.duration === ""}
-          >
-            {`${row.time}  ${row.label}  ${row.duration}  ${row.status}`.trimEnd()}
-          </Text>
+          <Box flexDirection="row">
+            <Text
+              backgroundColor={colorOf(row.style.color)}
+            >
+              {" "}
+            </Text>
+            <Text
+              wrap="truncate"
+              color={row.status === "failed" ? "error" : undefined}
+              dimColor={row.status === "" && row.duration === ""}
+            >
+              {` ${row.label}  ${row.duration}  ${row.status !== 'ok' ? row.status : ''}`.trimEnd()}
+            </Text>
+          </Box>
           {row.details.map((line) => (
             <Text wrap="truncate" dimColor>
               {`    ${line}`}

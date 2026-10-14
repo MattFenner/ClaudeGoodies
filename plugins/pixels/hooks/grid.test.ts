@@ -1,9 +1,10 @@
 import { expect, test } from "claude-code/testing";
 
-import { COLOR_NONE, gridOf, spanToCellCount, type Cell } from "./grid";
+import { gridOf, spanToCellCount, type Cell } from "./grid";
+import { COLOR_NONE } from "./spanStyle";
 
 import type { Span, ToolSpan } from "./spans";
-import { otherSpan, toolSpan, userSpan } from "./spanFixtures";
+import { modelSpan, toolSpan, userSpan } from "./spanFixtures";
 
 const chars = (spans: Span[], columns: number): string => gridOf(spans, columns)[0]!.map((c: Cell) => c.char).join("");
 
@@ -36,8 +37,8 @@ test("a tool call of four seconds or more shows its summary", () => {
   expect(chars([tool], 6)).toBe("ls    ");
 });
 
-test("other long spans show blank cells", () => {
-  expect(chars([otherSpan({ type: "tool_Glob", durationMs: 6000 })], 6)).toBe("      ");
+test("long model calls show blank cells", () => {
+  expect(chars([modelSpan({ type: "api_request", durationMs: 6000 })], 6)).toBe("      ");
 });
 
 test("user_prompt never shows text", () => {
@@ -45,14 +46,14 @@ test("user_prompt never shows text", () => {
 });
 
 test("each span styles its own cells", () => {
-  const row = gridOf([toolSpan({ type: "tool_Glob", durationMs: 1000 }), otherSpan({ type: "api_request", durationMs: 1000 })], 3)[0]!;
-  expect(row[0]!.background).toBe(0xaaaaff);
-  expect(row[1]!.background).toBe(0xffaaff);
+  const row = gridOf([toolSpan({ type: "tool_Glob", durationMs: 1000 }), modelSpan({ type: "api_request", durationMs: 1000 })], 3)[0]!;
+  expect(row[0]!.background).toBe(0xadbb6d);
+  expect(row[1]!.background).toBe(0xbebebe);
   expect(row[2]!).toEqual({ char: " ", foreground: COLOR_NONE, background: COLOR_NONE });
 });
 
 test("a row too long for the width keeps the most recent cells", () => {
-  const cells = gridOf([toolSpan({ type: "tool_Glob", durationMs: 5000 }), otherSpan({ type: "api_request", durationMs: 1000 })], 4)[0]!;
+  const cells = gridOf([toolSpan({ type: "tool_Glob", durationMs: 5000 }), modelSpan({ type: "api_request", durationMs: 1000 })], 4)[0]!;
   expect(cells.length).toBe(4);
-  expect(cells.map((c: Cell) => c.background)).toEqual([0xaaaaff, 0xaaaaff, 0xaaaaff, 0xffaaff]);
+  expect(cells.map((c: Cell) => c.background)).toEqual([0xadbb6d, 0xadbb6d, 0xadbb6d, 0xbebebe]);
 });

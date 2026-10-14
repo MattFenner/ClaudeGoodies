@@ -30,7 +30,7 @@ for plugin in "${plugins[@]}"; do
 
   (cd "$dir" && claude plugin validate .)
   if compgen -G "$dir/tests/*.test.ts*" >/dev/null; then
-    (cd "$dir" && claude plugin test .)
+    (cd "$dir" && claude plugin test . | sed '/^(pass)/d')
   fi
 
   (cd "$dir" && npx -y -p typescript@5.6.3 tsc -p tsconfig.json)

@@ -1,4 +1,4 @@
-import type { AgentSpan, ModelSpan, OtherSpan, ToolSpan, UserSpan } from "./spans";
+import type { AgentSpan, HarnessEventSpan, ModelSpan, ToolSpan, UserSpan } from "./spans";
 
 // Test helpers: one factory per span kind, so a test builds the kind it means.
 // Each takes the fields it cares about and gets defaults for the rest.
@@ -42,10 +42,10 @@ export const modelSpan = (override: Partial<ModelSpan> = {}): ModelSpan => ({
   ...override,
 });
 
-export const otherSpan = (override: Partial<OtherSpan> = {}): OtherSpan => ({
-  kind: "other",
+export const harnessEventSpan = (override: Partial<HarnessEventSpan> = {}): HarnessEventSpan => ({
+  kind: "harnessevent",
   type: "unset",
-  source: "test",
+  eventKind: "plugin_loaded",
   start: 0,
   durationMs: 0,
   events: [],

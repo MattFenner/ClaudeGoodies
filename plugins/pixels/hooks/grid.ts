@@ -1,73 +1,20 @@
 import type { Span } from "./spans";
+import { COLOR_NONE, styleOf } from "./spanStyle";
 
 export type Row = Cell[];
 export type Grid = Row[];
 
-// A Raster color of this value means "the terminal's own default".
-export const COLOR_NONE = 0x01000000;
-
-export type Cell = CellStyle & {
+export type Cell = {
   char: string | undefined;
+  foreground: number,
+  background: number,
 };
 
-const BLACK = 0x000000;
-
-type CellStyle = { foreground: number; background: number };
-
 const EMPTY_CELL: Cell = {
-  char: ' ',
+  char: " ",
   foreground: COLOR_NONE,
   background: COLOR_NONE,
 };
-
-const STYLE_USER: CellStyle = {
-  background: COLOR_NONE,
-  foreground: BLACK,
-};
-
-const STYLE_TOOL_OTHER: CellStyle = {
-  background: 0xaaaaff,
-  foreground: BLACK,
-};
-
-const STYLE_MODEL: CellStyle = {
-  background: 0xaaaaff,
-  foreground: BLACK,
-};
-
-const STYLE_MCP: CellStyle = {
-  background: 0xaaffaa,
-  foreground: BLACK,
-};
-
-const STYLE_AGENT: CellStyle = {
-  background: 0xaaffaa,
-  foreground: BLACK,
-};
-
-const STYLE_OTHER: CellStyle = {
-  background: 0xffaaff,
-  foreground: BLACK,
-};
-
-export function spanToCellStyle(span: Span): CellStyle {
-  const kind = span.kind;
-
-  switch(kind) {
-    case 'user': return STYLE_USER;
-    case 'model': return STYLE_MODEL;
-    case 'tool': 
-      switch (span.toolKind) {
-        case 'mcp':
-          return STYLE_MCP;
-        case 'other':
-          return STYLE_TOOL_OTHER;
-      }
-      break;
-    case 'agent': return STYLE_AGENT;
-    default: return STYLE_OTHER;
-  }
-}
 
 const MS_PER_CELL = 1000;
 
@@ -80,11 +27,13 @@ export function spanToCellCount(span: Pick<Span, "durationMs">): number {
 export function gridOf(spans: Span[], columns: number): Grid {
   const row: Row = [];
   for (const span of spans) {
-    const style = spanToCellStyle(span);
-    const title = spanToTitle(span);
+    const style = styleOf(span);
     for (let i = 0; i < spanToCellCount(span); i++) {
-      const cell : Cell = { char: (i < title.length) ? title[i] : " ", ...style };
-      row.push(cell);
+      if (span.kind === "tool" && span.success === false && i === 0) {
+        row.push({ char: "E", background: style.color, foreground: 0xff0000 });
+      } else {
+        row.push({ char: " ", background: style.color, foreground: COLOR_NONE });
+      }
     }
   }
   // Too long for the row: keep the most recent cells.
@@ -101,27 +50,12 @@ export function gridOf(spans: Span[], columns: number): Grid {
 export function gridToTerminal(grid: Grid): string {
   const numbers = grid
     .flat()
-    .flatMap(({ char, foreground, background }) => [
+    .flatMap(({ char, background, foreground }) => [
       (char ?? " ").codePointAt(0) ?? 0x20,
-      foreground ?? COLOR_NONE,
-      background ?? COLOR_NONE,
+      foreground,
+      background,
     ]);
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
   // @ts-ignore: toBase64 is missing from the TypeScript 5.6 lib that check.sh uses
   return new Uint8Array(Uint32Array.from(numbers).buffer).toBase64();
-}
-
-// A Raster color: 0x00RRGGBB, each channel rounded and clamped to 0-255.
-export function rgbToHex(r: number, g: number, b: number): number {
-  const channel = (v: number): number => Math.max(0, Math.min(255, Math.round(v)));
-  return (channel(r) << 16) | (channel(g) << 8) | channel(b);
-}
-function spanToTitle(span: Span): string {
-  if (!span.durationMs || span.durationMs < 4000) return " ";
-
-  if (span.kind === "tool") {
-    return span.call?.summary ?? " ";
-  }
-
-  return " ";
 }

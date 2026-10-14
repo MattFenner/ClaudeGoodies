@@ -1,4 +1,5 @@
 import type { Span } from "./spans";
+import { type SpanStyle, styleOf } from "./spanStyle";
 
 // One line of the details pane for a span: what it was, when, how long, how it went.
 export type SpanRow = {
@@ -6,6 +7,7 @@ export type SpanRow = {
   label: string;
   duration: string;
   status: "ok" | "failed" | "running" | "";
+  style: SpanStyle;
   details: string[];
 };
 
@@ -15,6 +17,7 @@ export function spanRow(span: Span): SpanRow {
     label: labelOf(span),
     duration: formatDuration(span),
     status: statusOf(span),
+    style: styleOf(span),
     details: detailLines(span),
   };
 }
@@ -24,7 +27,8 @@ function stripToolPrefix(type: string): string {
 }
 
 function labelOf(span: Span): string {
-  switch (span.kind) {
+  const kind = span.kind;
+  switch (kind) {
     case "user":
       if (span.prompt) {
         return `prompt: ${span.prompt}`;
@@ -36,11 +40,12 @@ function labelOf(span: Span): string {
       return span.toolName ?? span.call?.tool ?? (stripToolPrefix(span.type) || "tool");
     case "model":
       return span.model;
-    case "other":
-      if (span.source) {
-        return span.source;
-      }
-      return span.type.replaceAll('_', ' ');
+    case "harnessevent":
+      return span.eventKind.replaceAll("_", " ");
+    default: {
+      const _exhaustiveCheck: never = span;
+      return _exhaustiveCheck;
+    }
   }
 }
 
@@ -70,7 +75,6 @@ function callLines(span: Span): string[] {
   return [
     call.summary,
     call.agentId ? `in subagent ${call.agentId}` : undefined,
-    call.isReadOnly ? "read-only" : undefined,
     call.outcome === "denied"
       ? `denied${call.deniedBecause ? `: ${call.deniedBecause}` : ""}`
       : undefined,
@@ -82,25 +86,6 @@ export function detailLines(span: Span): string[] {
   if(span.kind === "tool") {
     lines.push(...callLines(span));
   };
-  if (span.kind === 'other') {
-    // FIXME: make this better
-    if (span.events.length > 0) {
-      lines.push(span.events[0]?.source);
-    }
-    // for (const p in span) {
-    //   lines.push(`${p} : ${span[p]}`);
-    // }
-    for (const e of span.events) {
-      // for (const ep in e) {
-      //   if(ep === 'type') continue;
-      //   if(ep === 'timestamp') continue;
-      //   lines.push(`${ep}: ${e[ep]}`);
-      // }
-      for (const a in e.attributes) {
-        lines.push(`${a}: ${e.attributes[a]}`);
-      }
-    }
-  }
   return lines.filter(l => l !== undefined);
 }
 

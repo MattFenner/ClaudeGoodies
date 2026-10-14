@@ -6,11 +6,14 @@ Guiding principles in order of importance:
 - Readability
 - Maintainability
 - Simplicity
+- Prefer errors at lint/compile time (rather than run time)
 - Functional concepts
 - Performance
 - Immutability
 
-Use functional and immutable concepts without being dogmatic. Readability, maintainability and simplicity come first.
+Prefering errors at lint/compile time is high on the list after the obvious 3. This helps catch as many issues as possible when using AI assistants to help write the code.
+
+Use functional and immutable concepts where they help without being dogmatic. Readability, maintainability and simplicity come first.
 
 These are tools for working with Claude, not production-grade enterprise tooling. Don't over-engineer it.
 
@@ -132,7 +135,7 @@ Simple expressions like `Foo[]` are ok.
 
 This also applies when using types from third-party libraries. Prefer the library's named types rather than inline type expressions. Define named types ourselves if the library does not provide them.
 
-### Prefer union types over large types with lots of optional fields
+### Prefer descriminated union types over large types with lots of optional fields
 
 When there is more than one shape to a type, prefer union types over lots of optional fields. 
 This helps code using the type to know when each field is relevant, and is easier to read and follow.
@@ -166,6 +169,15 @@ type ToolSpan = {
     type: 'tool',
     toolCall: ToolCall
 }
+```
+
+When working with the descriminated union types. If you need to handle all cases, prefer using switch with the 'exhaustiveness check'. This ensures we get errors at lint/compile time rather than at run time:
+
+```typescript
+    default: {
+      const _exhaustiveCheck: never = shape;
+      return _exhaustiveCheck;
+    }
 ```
 
 ### if vs ? and ??
