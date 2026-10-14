@@ -36,12 +36,14 @@ export function callInfo(input: Record<string, unknown> & { tool: string; agentI
   return { tool: input.tool, summary: summarizeToolInput(input), agentId: input.agentId };
 }
 
-// What it learns from the answer: it ran, errored, or was refused.
-export function callOutcome(answer: {
+type CallAnswer = {
   deny?: string;
   isError?: boolean;
   isReadOnly?: boolean;
-}): Pick<ToolCallInfo, "outcome" | "isReadOnly" | "deniedBecause"> {
+};
+
+// What it learns from the answer: it ran, errored, or was refused.
+export function callOutcome(answer: CallAnswer): Pick<ToolCallInfo, "outcome" | "isReadOnly" | "deniedBecause"> {
   if (answer.deny !== undefined) return { outcome: "denied", deniedBecause: answer.deny };
   return { outcome: answer.isError ? "error" : "ok", isReadOnly: answer.isReadOnly };
 }

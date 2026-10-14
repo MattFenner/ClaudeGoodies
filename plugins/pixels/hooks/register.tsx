@@ -1,12 +1,20 @@
 import { atom, read, update } from "claude-code";
 
-import type { EngineInterface, Register, RenderInputOf } from "claude-code";
+import type {
+  EngineInterface,
+  Register,
+  RenderElement,
+  RenderInput,
+  RenderInputOf,
+  UiLogOptions,
+} from "claude-code";
 import { spanRows } from "./details";
 import { normalizeEvent } from "./events";
 import { gridOf, gridToTerminal } from "./grid";
 import { makeSpans, sinceLastPrompt } from "./spans";
 import { callInfo, callOutcome, keepNewest, summarizePrompt } from "./tools";
 import { LOG_DIR, staleLogs, toJsonl } from "./log";
+import type { Logger } from "./log";
 import type { ToolCallInfo } from "../types";
 
 // Every telemetry entry the collector has seen this session, oldest first.
@@ -15,7 +23,10 @@ const eventsAtom = atom({ plugin: "pixels", key: "events" } as const, []);
 // What the tool.call hook learned about each call, keyed by tool_use_id. Joined
 // onto the tool spans when they are built. Kept in memory only, never logged,
 // since tool arguments can hold paths and commands.
-const toolCallsAtom = atom({ plugin: "pixels", key: "toolCalls" } as const, {} as Record<string, ToolCallInfo>);
+const toolCallsAtom = atom(
+  { plugin: "pixels", key: "toolCalls" } as const,
+  {} as Record<string, ToolCallInfo>,
+);
 const MAX_TOOL_CALLS = 500;
 
 // The prompts the prompt.submit hook saw, with when. Telemetry redacts the text.
@@ -42,13 +53,19 @@ function writeLog($: EngineInterface): void {
 }
 
 // $.fs can't delete, so old logs go through the host's own delete command.
-async function pruneLogs($: EngineInterface, dir: string, keep: string): Promise<void> {
+async function pruneLogs(
+  $: EngineInterface,
+  dir: string,
+  keep: string,
+): Promise<void> {
   for (const path of staleLogs(await $.fs.list(dir), dir, keep, Date.now())) {
-    const removed = await $.process.run(["rm", "-f", path]).catch(() => undefined);
+    const removed = await $.process
+      .run(["rm", "-f", path])
+      .catch(() => undefined);
     if (removed?.exitCode !== 0) {
-      await $.process.run(["cmd", "/c", "del", "/f", "/q", path.replaceAll("/", "\\")]).catch((err) =>
-        $.ui.log(`could not delete old log ${path}: ${err}`),
-      );
+      await $.process
+        .run(["cmd", "/c", "del", "/f", "/q", path.replaceAll("/", "\\")])
+        .catch((err) => $.ui.log(`could not delete old log ${path}: ${err}`));
     }
   }
 }
@@ -71,37 +88,20 @@ export const register: Register = (on) => {
       return { text: "Pixels pane closed." };
     }
     const { isPlaced } = await $.ui.open({ id: PANE, title: "Pixels" });
-    return { text: isPlaced ? "pane opened." : "pane opened, but the terminal is too narrow to show it yet." };
-  });
-
-  on("ui.render", { component: "Pane", requestId: PANE }, async ($, e) => {
-    const { Box, Text } = $.ui.resolve(e);
-    const spans = sinceLastPrompt(makeSpans(await read($, eventsAtom), await read($, toolCallsAtom), await read($, promptsAtom)));
-    // Everything since the last prompt: the pane scrolls its own body.
-    const rows = spanRows(spans);
-
-    return (
-      <Box flexDirection="column">
-        {rows.length === 0 && <Text dimColor>No spans yet.</Text>}
-        {rows.map((row) => (
-          <Box flexDirection="column">
-            <Text wrap="truncate" color={row.status === "failed" ? "error" : undefined} dimColor={row.status === "" && row.duration === ""}>
-              {`${row.time}  ${row.label}  ${row.duration}  ${row.status}`.trimEnd()}
-            </Text>
-            {row.details.map((line) => (
-              <Text wrap="truncate" dimColor>
-                {`    ${line}`}
-              </Text>
-            ))}
-          </Box>
-        ))}
-      </Box>
-    );
+    return {
+      text: isPlaced
+        ? "pane opened."
+        : "pane opened, but the terminal is too narrow to show it yet.",
+    };
   });
 
   // Watches every prompt and always passes it on unchanged.
   on("prompt.submit", async ($, e, next) => {
-    await update($, promptsAtom, (d) => [...d, { at: Date.now(), text: summarizePrompt(e.text) }].slice(-MAX_PROMPTS));
+    await update($, promptsAtom, (d) =>
+      [...d, { at: Date.now(), text: summarizePrompt(e.text) }].slice(
+        -MAX_PROMPTS,
+      ),
+    );
     return next(e);
   });
 
@@ -110,15 +110,26 @@ export const register: Register = (on) => {
     const id = e.tool_use_id;
     if (id) {
       await update($, toolCallsAtom, (d) =>
-        keepNewest({ ...d, [id]: callInfo(e) } as Record<string, ToolCallInfo>, MAX_TOOL_CALLS),
+        keepNewest(
+          { ...d, [id]: callInfo(e) } as Record<string, ToolCallInfo>,
+          MAX_TOOL_CALLS,
+        ),
       );
     }
     const answer = await next(e);
     if (id) {
-      await update($, toolCallsAtom, (d) => ({
-        ...d,
-        [id]: { ...(d[id] ?? ({ tool: "unknown" } as ToolCallInfo)), ...callOutcome(answer) },
-      } as Record<string, ToolCallInfo>));
+      await update(
+        $,
+        toolCallsAtom,
+        (d) =>
+          ({
+            ...d,
+            [id]: {
+              ...(d[id] ?? ({ tool: "unknown" } as ToolCallInfo)),
+              ...callOutcome(answer),
+            },
+          }) as Record<string, ToolCallInfo>,
+      );
     }
     return answer;
   });
@@ -131,18 +142,64 @@ export const register: Register = (on) => {
 
   on("ui.render", { component: "AbovePrompt" }, async ($, e, next) => {
     if (e.surface === "terminal") {
-      return terminalRender($, e);
+      return renderBarTerminal($, e);
     }
+    
+    // FIXME: render for desktop
 
     return next(e);
   });
+
+  on(
+    "ui.render",
+    { component: "Pane", requestId: PANE },
+    async ($, e, _next) => {
+      return await renderPane($, e);
+    },
+  );
 };
 
-async function terminalRender(
+async function renderPane($: EngineInterface, e: RenderInput) : Promise<RenderElement> {
+  const { Box, Text } = $.ui.resolve(e);
+  const events = await read($, eventsAtom);
+  const toolCalls = await read($, toolCallsAtom);
+  const prompts = await read($, promptsAtom);
+  const spans = sinceLastPrompt(
+    makeSpans({events, toolCalls, prompts}, makeLogger($)),
+  );
+  // Everything since the last prompt: the pane scrolls its own body.
+  const rows = spanRows(spans);
+
+  return (
+    <Box flexDirection="column">
+      {rows.length === 0 && <Text dimColor>No spans yet.</Text>}
+      {rows.map((row) => (
+        <Box flexDirection="column">
+          <Text
+            wrap="truncate"
+            color={row.status === "failed" ? "error" : undefined}
+            dimColor={row.status === "" && row.duration === ""}
+          >
+            {`${row.time}  ${row.label}  ${row.duration}  ${row.status}`.trimEnd()}
+          </Text>
+          {row.details.map((line) => (
+            <Text wrap="truncate" dimColor>
+              {`    ${line}`}
+            </Text>
+          ))}
+        </Box>
+      ))}
+    </Box>
+  );
+}
+
+async function renderBarTerminal(
   $: EngineInterface,
   e: RenderInputOf<"AbovePrompt", "terminal">,
-) {
+) : Promise<RenderElement> {
   const events = await read($, eventsAtom);
+  const toolCalls = await read($, toolCallsAtom);
+  const prompts = await read($, promptsAtom);
 
   const { Box, Raster } = $.ui.resolve(e);
 
@@ -150,7 +207,7 @@ async function terminalRender(
   const columns = (e.viewport?.columns ?? 100) - 5;
   const rows = 1;
 
-  const cells = gridOf(makeSpans(events), columns);
+  const cells = gridOf(makeSpans({events, toolCalls, prompts}, makeLogger($)), columns);
 
   // $.ui.log(debugView(cells));
   // $.ui.log(JSON.stringify(e.viewport));
@@ -168,4 +225,12 @@ async function terminalRender(
       // Text({ children: [`Last event: ${events[events.length - 1]?.type}`] }),
     ],
   });
+}
+
+function makeLogger($: EngineInterface): Logger {
+  return {
+    logDebug(text: string, options?: UiLogOptions) : void {
+      $.ui.log(text, options);
+    },
+  };
 }

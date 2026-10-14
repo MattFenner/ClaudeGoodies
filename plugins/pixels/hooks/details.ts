@@ -25,14 +25,22 @@ function stripToolPrefix(type: string): string {
 
 function labelOf(span: Span): string {
   switch (span.kind) {
+    case "user":
+      if (span.prompt) {
+        return `prompt: ${span.prompt}`;
+      }
+      return "user";
     case "agent":
       return span.agentId;
-    case "user":
-      return span.prompt ?? "user_prompt";
     case "tool":
       return span.toolName ?? span.call?.tool ?? (stripToolPrefix(span.type) || "tool");
+    case "model":
+      return span.model;
     case "other":
-      return span.type;
+      if (span.source) {
+        return span.source;
+      }
+      return span.type.replaceAll('_', ' ');
   }
 }
 
@@ -70,25 +78,32 @@ function callLines(span: Span): string[] {
 }
 
 export function detailLines(span: Span): string[] {
-  const lines = span.kind === "tool" ? [...callLines(span)] : [];
-  if ("model" in span && span.model) {
-    lines.push(span.model);
+  const lines : (string | undefined)[] = [];
+  if(span.kind === "tool") {
+    lines.push(...callLines(span));
+  };
+  if (span.kind === 'other') {
+    // FIXME: make this better
+    if (span.events.length > 0) {
+      lines.push(span.events[0]?.source);
+    }
+    // for (const p in span) {
+    //   lines.push(`${p} : ${span[p]}`);
+    // }
+    for (const e of span.events) {
+      // for (const ep in e) {
+      //   if(ep === 'type') continue;
+      //   if(ep === 'timestamp') continue;
+      //   lines.push(`${ep}: ${e[ep]}`);
+      // }
+      for (const a in e.attributes) {
+        lines.push(`${a}: ${e.attributes[a]}`);
+      }
+    }
   }
-  return lines;
+  return lines.filter(l => l !== undefined);
 }
 
-// Oldest first, so the prompt that started the turn is at the top. With a
-// `maxLines`, the newest rows that fit are kept (one line each, plus their
-// details; at least one row is always shown); without one, every span gets a row.
-export function spanRows(spans: Span[], maxLines = Infinity): SpanRow[] {
-  const rows: SpanRow[] = [];
-  let used = 0;
-  for (const span of [...spans].reverse()) {
-    const row = spanRow(span);
-    const lines = 1 + row.details.length;
-    if (rows.length > 0 && used + lines > maxLines) break;
-    rows.push(row);
-    used += lines;
-  }
-  return rows.reverse();
+export function spanRows(spans: Span[]): SpanRow[] {
+  return spans.map(s => spanRow(s));
 }

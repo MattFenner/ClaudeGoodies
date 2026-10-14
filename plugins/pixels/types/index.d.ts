@@ -4,6 +4,7 @@ export type Event = {
   model?: string;
   source?: string;
   timestamp?: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   attributes?: Record<string, any>;
 };
 
@@ -26,6 +27,8 @@ export type PromptInfo = {
   at: number;
   text: string;
 };
+
+export type PixelsState = { events: Event[]; toolCalls: Record<string, ToolCallInfo>; prompts: PromptInfo[] };
 
 declare module 'claude-code' {
   interface PluginState {

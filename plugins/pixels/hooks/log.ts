@@ -1,7 +1,12 @@
+import type { UiLogOptions } from "claude-code";
 import type { Event } from "../types";
 
 export const LOG_DIR = "logs";
 const MAX_LOG_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+
+export type Logger = {
+  logDebug(text: string, options? : UiLogOptions) : void;
+}
 
 // One JSON object per line.
 export function toJsonl(events: Event[]): string {

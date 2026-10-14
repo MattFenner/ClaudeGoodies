@@ -11,21 +11,8 @@ export type Cell = CellStyle & {
 };
 
 const BLACK = 0x000000;
-const WHITE = 0xffffff;
 
 type CellStyle = { foreground: number; background: number };
-
-// First match wins. The cell shows the first letter of the type after the prefix.
-// const PREFIX_STYLES: [prefix: string, style: CellStyle][] = [
-//   ["user_prompt", { foreground: BLACK, background: COLOR_NONE }],
-//   ["tool_", { foreground: BLACK, background: 0xAAAAff }],
-//   ["user_", { foreground: BLACK, background: 0xffffff }],
-//   ["mcp_", { foreground: BLACK, background: 0xaaffaa }],
-//   ["assistant_", { foreground: WHITE, background: 0x111111 }],
-// ];
-
-// Anything that matches no rule: its own first letter, lowercased.
-const FALLBACK_STYLE: CellStyle = { foreground: BLACK, background: 0xffaaff };
 
 const EMPTY_CELL: Cell = {
   char: ' ',
@@ -38,17 +25,22 @@ const STYLE_USER: CellStyle = {
   foreground: BLACK,
 };
 
-const STYLE_TOOL: CellStyle = {
+const STYLE_TOOL_OTHER: CellStyle = {
   background: 0xaaaaff,
   foreground: BLACK,
 };
 
-const STYLE_AGENT: CellStyle = {
+const STYLE_MODEL: CellStyle = {
   background: 0xaaaaff,
   foreground: BLACK,
 };
 
 const STYLE_MCP: CellStyle = {
+  background: 0xaaffaa,
+  foreground: BLACK,
+};
+
+const STYLE_AGENT: CellStyle = {
   background: 0xaaffaa,
   foreground: BLACK,
 };
@@ -59,15 +51,22 @@ const STYLE_OTHER: CellStyle = {
 };
 
 export function spanToCellStyle(span: Span): CellStyle {
-  const type = span.type;
+  const kind = span.kind;
 
-  if (type.startsWith("user_prompt")) return STYLE_USER;
-  if (type.startsWith("user_input")) return { foreground: BLACK, background: 0xffffff };
-  if (type.startsWith("assistant_")) return { foreground: WHITE, background: 0x111111 };
-  if (type.startsWith("tool_")) return STYLE_TOOL;
-  if (type.startsWith("mcp_")) return STYLE_MCP;
-
-  return STYLE_OTHER;
+  switch(kind) {
+    case 'user': return STYLE_USER;
+    case 'model': return STYLE_MODEL;
+    case 'tool': 
+      switch (span.toolKind) {
+        case 'mcp':
+          return STYLE_MCP;
+        case 'other':
+          return STYLE_TOOL_OTHER;
+      }
+      break;
+    case 'agent': return STYLE_AGENT;
+    default: return STYLE_OTHER;
+  }
 }
 
 const MS_PER_CELL = 1000;
@@ -84,7 +83,7 @@ export function gridOf(spans: Span[], columns: number): Grid {
     const style = spanToCellStyle(span);
     const title = spanToTitle(span);
     for (let i = 0; i < spanToCellCount(span); i++) {
-      const cell = { char: (i < title.length) ? title[i] : " ", ...style };
+      const cell : Cell = { char: (i < title.length) ? title[i] : " ", ...style };
       row.push(cell);
     }
   }
@@ -103,16 +102,18 @@ export function gridToTerminal(grid: Grid): string {
   const numbers = grid
     .flat()
     .flatMap(({ char, foreground, background }) => [
-      (char ?? " ").codePointAt(0),
+      (char ?? " ").codePointAt(0) ?? 0x20,
       foreground ?? COLOR_NONE,
       background ?? COLOR_NONE,
     ]);
+  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+  // @ts-ignore: toBase64 is missing from the TypeScript 5.6 lib that check.sh uses
   return new Uint8Array(Uint32Array.from(numbers).buffer).toBase64();
 }
 
 // A Raster color: 0x00RRGGBB, each channel rounded and clamped to 0-255.
 export function rgbToHex(r: number, g: number, b: number): number {
-  const channel = (v: number) => Math.max(0, Math.min(255, Math.round(v)));
+  const channel = (v: number): number => Math.max(0, Math.min(255, Math.round(v)));
   return (channel(r) << 16) | (channel(g) << 8) | channel(b);
 }
 function spanToTitle(span: Span): string {

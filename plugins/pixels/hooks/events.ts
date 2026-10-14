@@ -1,4 +1,5 @@
 import type { TelemetryRecordEntry } from "claude-code";
+import type { Event } from "../types";
 
 // Attributes dropped before an event is stored, so they never reach the UI
 // state or the log files. Add a key here to drop another.
@@ -9,7 +10,7 @@ const DROPPED_ATTRIBUTES = new Set([
   "organization.id",
 ]);
 
-export function normalizeEvent(e: TelemetryRecordEntry): any {
+export function normalizeEvent(e: TelemetryRecordEntry): Event {
   return {
     type: e.event,
     timestamp: e.loggedAt,

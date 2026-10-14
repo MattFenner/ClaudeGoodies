@@ -4,7 +4,9 @@ export type StoredTodo = { id: string; text: string; isDone: boolean; createdAt:
 
 // Stands in for the engine beneath the plugin: an in-memory store, and the registrations
 // the plugin makes when a session starts. Returns what the plugin saved and which panes it opened.
-export function fakeEngine(on: On, initial?: StoredTodo[]) {
+export type FakeEngine = { stored: () => StoredTodo[] | undefined; opened: string[] };
+
+export function fakeEngine(on: On, initial?: StoredTodo[]): FakeEngine {
   let stored = initial
   const opened: string[] = []
 

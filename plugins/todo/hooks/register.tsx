@@ -1,5 +1,5 @@
 import { atom, read, update } from 'claude-code'
-import type { EngineInterface, Register } from 'claude-code'
+import type { EngineInterface, Register, UiOpenResult } from 'claude-code'
 
 import type { Todo, TodoStore } from '../types'
 import * as ui from './ui'
@@ -8,7 +8,7 @@ import * as tools from './tools'
 const TOOL = 'mcp__todo__todos'
 const todos = atom({ plugin: 'todo', key: 'list' } as const, [])
 
-const openPane = ($: EngineInterface) => $.ui.open({ id: ui.PANE, title: 'Todos' })
+const openPane = ($: EngineInterface): Promise<UiOpenResult> => $.ui.open({ id: ui.PANE, title: 'Todos' })
 
 function newTodo(text: string): Todo {
   return {
@@ -22,7 +22,7 @@ function newTodo(text: string): Todo {
 // Abstracts the store of todos, so the other code doesn't have to know about atoms or the persistent store.
 function storeOf($: EngineInterface) : TodoStore {
   // Every change goes through here: session state redraws the pane, the store keeps it across sessions.
-  const change = async (fn: (list: Todo[]) => Todo[]) => {
+  const change = async (fn: (list: Todo[]) => Todo[]): Promise<void> => {
     await update($, todos, list => fn(list ?? []))
     await $.store.set('todos', await read($, todos))
   }

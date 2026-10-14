@@ -1,8 +1,14 @@
+import type { RegisteredToolSpec } from "claude-code";
+
 import type { Todo, TodoStore } from "../types";
 
 export type ToolInput = { action?: string; text?: string; id?: string };
 
-export const manifest = {
+export type ToolResult =
+  | { result: string; isError?: undefined }
+  | { result: string; isError: true };
+
+export const manifest: RegisteredToolSpec = {
   name: "todos",
   description:
     "Read and manage the user's persistent todo list (shown in the Todos panel). " +
@@ -23,7 +29,10 @@ export const manifest = {
   isDeferred: false,
 };
 
-export async function runTool(store: TodoStore, input: ToolInput) {
+export async function runTool(
+  store: TodoStore,
+  input: ToolInput,
+): Promise<ToolResult> {
   switch (input.action) {
     case "list":
       return { result: describe(await store.getAll()) };
@@ -37,7 +46,7 @@ export async function runTool(store: TodoStore, input: ToolInput) {
       break;
     case "complete":
     case "reopen":
-    case "remove":
+    case "remove": {
       const found = await store.getById(input.id);
       if (!found)
         return {
@@ -48,6 +57,7 @@ export async function runTool(store: TodoStore, input: ToolInput) {
       else if (found.isDone !== (input.action === "complete"))
         await store.toggle(found.id);
       break;
+    }
     case "clear_done":
       await store.clearDone();
       break;
